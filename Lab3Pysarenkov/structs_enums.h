@@ -1,22 +1,24 @@
 #pragma once
 extern "C"{
 //ffmpeg libraries
-#include "libavutil/avstring.h"
-#include "libavutil/channel_layout.h"
-#include "libavutil/eval.h"
-#include "libavutil/mathematics.h"
-#include "libavutil/pixdesc.h"
-#include "libavutil/dict.h"
+#include <libavutil/avstring.h>
+#include <libavutil/eval.h>
+#include <libavutil/mathematics.h>
+#include <libavutil/pixdesc.h>
+#include <libavutil/imgutils.h>
+#include <libavutil/dict.h>
 #include <libavutil/fifo.h>
-#include "libavutil/samplefmt.h"
-//#include "libavutil/time.h"
-#include "libavutil/bprint.h"
-#include "libavformat/avformat.h"
-#include "libavdevice/avdevice.h"
-#include "libswscale/swscale.h"
-#include "libavutil/opt.h"
-#include "libavcodec/avfft.h"
-#include "libswresample/swresample.h"
+#include <libavutil/parseutils.h>
+#include <libavutil/samplefmt.h>
+#include <libavutil/avassert.h>
+#include <libavutil/time.h>
+#include <libavutil/bprint.h>
+#include <libavformat/avformat.h>
+#include <libavdevice/avdevice.h>
+#include <libswscale/swscale.h>
+#include <libavutil/opt.h>
+#include <libavcodec/avfft.h>
+#include <libswresample/swresample.h>
 //SDL
 #include <SDL2/SDL_thread.h>
 #include <SDL2/SDL.h>
@@ -37,7 +39,7 @@ struct MyAVPacketList {
 
 //черга пакетів
 struct PacketQueue {
-    AVFifo *pkt_list;   //список пакетів
+    AVFifoBuffer *pkt_list;   //список пакетів
 //    AVFifo *pkt_list;
     int nb_packets;     //кількість пакетів у черзі
     int size;           //розмір черги у байтах
@@ -51,7 +53,8 @@ struct PacketQueue {
 //аудіопараметри
 struct AudioParams {
     int freq;                   //частота дискретизації
-    AVChannelLayout ch_layout;  //конфігурація каналів, через які відтворюється аудіо
+    int channels; //конфігурація каналів, через які відтворюється аудіо
+    int64_t channel_layout;
     enum AVSampleFormat fmt;    //формат
     int frame_size;
     int bytes_per_sec;
@@ -133,7 +136,7 @@ struct Decoder {
 //стан декодування та відтворення медіафайлу
 struct VideoState {
     SDL_Thread *read_tid;       //зчитування пакетів із контейнера (файлу)
-    const AVInputFormat *iformat; //примусово заданий формат файлу
+    AVInputFormat *iformat; //примусово заданий формат файлу
     int abort_request;          //запит на припинення дії програми
     int force_refresh;
     int paused;                 //відтворення на паузі
@@ -185,9 +188,9 @@ struct VideoState {
     int audio_volume; //гучність аудіовідтворення
     int muted;          //чи заглушене аудіо
     struct AudioParams audio_src; //параметри вхідного аудіо
-#if CONFIG_AVFILTER
-    struct AudioParams audio_filter_src;
-#endif
+//#if CONFIG_AVFILTER
+//    struct AudioParams audio_filter_src;
+//#endif
     struct AudioParams audio_tgt; //параметри відтворюваного аудіо
     struct SwrContext *swr_ctx;     //перетворювач аудіо
     int frame_drops_early;
@@ -226,14 +229,14 @@ struct VideoState {
     int width, height, xleft, ytop;
     int step;
 
-#if CONFIG_AVFILTER
-    int vfilter_idx;
-    AVFilterContext *in_video_filter;   // the first filter in the video chain
-    AVFilterContext *out_video_filter;  // the last filter in the video chain
-    AVFilterContext *in_audio_filter;   // the first filter in the audio chain
-    AVFilterContext *out_audio_filter;  // the last filter in the audio chain
-    AVFilterGraph *agraph;              // audio filter graph
-#endif
+//#if CONFIG_AVFILTER
+//    int vfilter_idx;
+//    AVFilterContext *in_video_filter;   // the first filter in the video chain
+//    AVFilterContext *out_video_filter;  // the last filter in the video chain
+//    AVFilterContext *in_audio_filter;   // the first filter in the audio chain
+//    AVFilterContext *out_audio_filter;  // the last filter in the audio chain
+//    AVFilterGraph *agraph;              // audio filter graph
+//#endif
 
     int last_video_stream, last_audio_stream, last_subtitle_stream;
 
