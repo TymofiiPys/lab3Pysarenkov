@@ -73,3 +73,8 @@ unix|win32: LIBS += -L$$PWD/../../../Qt/5.15.2/mingw81_32/lib/ -lavutil
 
 INCLUDEPATH += $$PWD/../../../Qt/5.15.2/mingw81_32/include/
 DEPENDPATH += $$PWD/../../../Qt/5.15.2/mingw81_32/include/
+
+win32: LIBS += -L$$PWD/../../../Qt/5.15.2/mingw81_32/lib/ -lavdevice
+
+INCLUDEPATH += $$PWD/../../../Qt/5.15.2/mingw81_32/include
+DEPENDPATH += $$PWD/../../../Qt/5.15.2/mingw81_32/include

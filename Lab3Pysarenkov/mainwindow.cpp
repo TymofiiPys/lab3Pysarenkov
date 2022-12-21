@@ -1,4 +1,5 @@
 #include "config.h"
+
 //#include "config_components.h"
 #include <inttypes.h>
 #include <math.h>
@@ -39,7 +40,8 @@ extern "C"
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_thread.h>
 
-#include "cmdutils.h"
+//#include "cmdutils.h"
+//#include "opt_common.h"
 }
 
 //#if CONFIG_AVFILTER
@@ -47,6 +49,69 @@ extern "C"
 //# include "libavfilter/buffersink.h"
 //# include "libavfilter/buffersrc.h"
 //#endif
+
+static MainWindow *m; //для взаємодії із формою
+
+/* options specified by the user */
+static AVInputFormat *file_iformat;
+static const char *input_filename;          //файл який ми програємо
+static const char *window_title;
+static int default_width;            //ширина дефолтні
+static int default_height;            //висота деф
+static int screen_width;               
+static int screen_height;
+static int screen_left;  //позиція
+static int screen_top;
+static int audio_disable;
+static int video_disable;
+static int subtitle_disable;
+//    static const char* wanted_stream_spec[AVMEDIA_TYPE_NB];
+static int seek_by_bytes;
+static float seek_interval;
+static int display_disable;
+static int borderless;
+static int alwaysontop;
+static int startup_volume;  //початкова гучність
+static int show_status;
+static int av_sync_type;
+static int64_t start_time;
+static int64_t duration;
+static int fast;
+static int genpts;
+static int lowres;
+static int decoder_reorder_pts;
+static int autoexit;
+static int exit_on_keydown;
+static int exit_on_mousedown;
+static int loop;
+static int framedrop;
+static int infinite_buffer;
+static int show_mode;
+static const char *audio_codec_name;
+static const char *subtitle_codec_name;
+static const char *video_codec_name;
+static double rdftspeed;
+static int64_t cursor_last_shown;
+static int cursor_hidden;
+//    #if CONFIG_AVFILTER
+//    static const char **vfilters_list = NULL;
+//    static int nb_vfilters = 0;
+//    static char *afilters = NULL;
+//    #endif
+static int autorotate;
+static int find_stream_info;
+static int filter_nbthreads;
+
+/* current context */
+static int is_full_screen;          //прапорець (чи в повному екрані)
+static int64_t audio_callback_time;
+
+//відображення
+static SDL_Window *window;
+static SDL_Renderer *renderer;
+static SDL_RendererInfo renderer_info;
+//аудіодевайс, куди передається аудіо
+static SDL_AudioDeviceID audio_dev;
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -136,286 +201,6 @@ static const struct TextureFormatEntry {
 { AV_PIX_FMT_NONE,           SDL_PIXELFORMAT_UNKNOWN },
 };
 
-//typedef struct MyAVPacketList {
-//    AVPacket *pkt;
-//    int serial;
-//} MyAVPacketList;
-
-//typedef struct PacketQueue {
-//    AVFifo *pkt_list; //список пакетів
-//    int nb_packets; //кількість пакетів
-//    int size; //розмір черги
-//    int64_t duration; 
-//    int abort_request;
-//    int serial;
-//    SDL_mutex *mutex; //мутекси і конди для тредів що використовують чергу
-//    SDL_cond *cond;
-//} PacketQueue;
-
-
-//typedef struct AudioParams {
-//    //аудіопараметри
-//    int freq;
-//    AVChannelLayout ch_layout;
-//    enum AVSampleFormat fmt;
-//    int frame_size;
-//    int bytes_per_sec;
-//} AudioParams;
-
-//typedef struct Clock {
-//    double pts;           /* clock base */
-//    double pts_drift;     /* clock base minus time at which we updated the clock */
-//    double last_updated;
-//    double speed;
-//    int serial;           /* clock is based on a packet with this serial */
-//    int paused;
-//    int *queue_serial;    /* pointer to the current packet queue serial, used for obsolete clock detection */
-//} Clock;
-
-/* Common struct for handling all types of decoded data and allocated render buffers. */
-//typedef struct Frame {
-//    AVFrame *frame;
-//    AVSubtitle sub;
-//    int serial;
-//    double pts;           /* presentation timestamp for the frame */
-//    double duration;      /* estimated duration of the frame */
-//    int64_t pos;          /* byte position of the frame in the input file */
-//    int width;
-//    int height;
-//    int format;
-//    AVRational sar;
-//    int uploaded;
-//    int flip_v;
-//} Frame;
-
-//typedef struct FrameQueue {
-//    Frame queue[FRAME_QUEUE_SIZE];  //безпосередньо черга
-//    int rindex;                     //індекс читання
-//    int windex;                     //індекс запису
-//    int size;                       //розмір черги
-//    int max_size;
-//    int keep_last;
-//    int rindex_shown;
-//    SDL_mutex *mutex;
-//    SDL_cond *cond;
-//    PacketQueue *pktq;              //відповідна черга пакетів
-//} FrameQueue;
-
-//enum {
-//    //види синхронізацій
-//    AV_SYNC_AUDIO_MASTER, /* default choice */
-//    AV_SYNC_VIDEO_MASTER,
-//    AV_SYNC_EXTERNAL_CLOCK, /* synchronize to an external clock */
-//};
-
-//typedef struct Decoder {
-//    AVPacket *pkt; //Пакет
-//    PacketQueue *queue; //черга пакетів для цього декодера
-//    AVCodecContext *avctx; //кодек контекст декодера
-//    int pkt_serial;
-//    int finished;
-//    int packet_pending;
-//    SDL_cond *empty_queue_cond;
-//    int64_t start_pts;
-//    AVRational start_pts_tb;
-//    int64_t next_pts;
-//    AVRational next_pts_tb;
-//    SDL_Thread *decoder_tid;
-//} Decoder;
-
-//typedef struct VideoState {
-//    SDL_Thread *read_tid;
-//    const AVInputFormat *iformat;
-//    int abort_request;
-//    int force_refresh;
-//    int paused;
-//    int last_paused;
-//    int queue_attachments_req;
-//    int seek_req;
-//    int seek_flags;
-//    int64_t seek_pos;
-//    int64_t seek_rel;
-//    int read_pause_return;
-//    AVFormatContext *ic;
-//    int realtime;
-
-//    Clock audclk;
-//    Clock vidclk;
-//    Clock extclk;
-
-//    FrameQueue pictq;//черга ФРЕЙМІВ картинок
-//    FrameQueue subpq;//черга субтитрів
-//    FrameQueue sampq;//черга аудіо
-
-//    Decoder auddec;//аудіодекодер
-//    Decoder viddec;//відеодекодер
-//    Decoder subdec;//субтитродекодер
-
-//    int audio_stream;       //номер аудіопотоку
-
-//    int av_sync_type;
-
-//    double audio_clock;
-//    int audio_clock_serial;
-//    double audio_diff_cum; /* used for AV difference average computation */
-//    double audio_diff_avg_coef;
-//    double audio_diff_threshold;
-//    int audio_diff_avg_count;
-//    AVStream *audio_st;
-//    PacketQueue audioq;
-//    int audio_hw_buf_size;
-//    uint8_t *audio_buf;
-//    uint8_t *audio_buf1;
-//    unsigned int audio_buf_size; /* in bytes */
-//    unsigned int audio_buf1_size;
-//    int audio_buf_index; /* in bytes */
-//    int audio_write_buf_size;
-//    int audio_volume;
-//    int muted;              //чи заглушено?
-//    struct AudioParams audio_src;
-//#if CONFIG_AVFILTER
-//    struct AudioParams audio_filter_src;
-//#endif
-//    struct AudioParams audio_tgt;
-//    struct SwrContext *swr_ctx;
-//    int frame_drops_early;
-//    int frame_drops_late;
-
-//    enum ShowMode {
-//        SHOW_MODE_NONE = -1, SHOW_MODE_VIDEO = 0, SHOW_MODE_WAVES, SHOW_MODE_RDFT, SHOW_MODE_NB
-//    } show_mode;
-//    int16_t sample_array[SAMPLE_ARRAY_SIZE];
-//    int sample_array_index;
-//    int last_i_start;
-//    RDFTContext *rdft;
-//    int rdft_bits;
-//    FFTSample *rdft_data;
-//    int xpos;
-//    double last_vis_time;
-//    SDL_Texture *vis_texture;
-//    SDL_Texture *sub_texture;
-//    SDL_Texture *vid_texture;
-
-//    int subtitle_stream;        //номер субт. потоку
-//    AVStream *subtitle_st;      //потік
-//    PacketQueue subtitleq;      //черга пакетів із субами
-
-//    double frame_timer;
-//    double frame_last_returned_time;
-//    double frame_last_filter_delay;
-//    int video_stream;
-//    AVStream *video_st;
-//    PacketQueue videoq;
-//    double max_frame_duration;      // maximum duration of a frame - above this, we consider the jump a timestamp discontinuity
-//    struct SwsContext *img_convert_ctx;
-//    struct SwsContext *sub_convert_ctx;
-//    int eof;                        //Кінець файлу
-
-//    char *filename;
-//    int width, height, xleft, ytop;
-//    int step;
-
-//#if CONFIG_AVFILTER
-//    int vfilter_idx;
-//    AVFilterContext *in_video_filter;   // the first filter in the video chain
-//    AVFilterContext *out_video_filter;  // the last filter in the video chain
-//    AVFilterContext *in_audio_filter;   // the first filter in the audio chain
-//    AVFilterContext *out_audio_filter;  // the last filter in the audio chain
-//    AVFilterGraph *agraph;              // audio filter graph
-//#endif
-
-//    int last_video_stream, last_audio_stream, last_subtitle_stream;
-
-//    SDL_cond *continue_read_thread;
-//} VideoState;
-
-/* options specified by the user */
-//static const AVInputFormat *file_iformat;
-//static const char *input_filename;          //файл який ми програємо
-//static const char *window_title;
-//static int default_width  = 640;            //ширина дефолтні
-//static int default_height = 480;            //висота деф
-//static int screen_width  = 0;               
-//static int screen_height = 0;
-//static int screen_left = SDL_WINDOWPOS_CENTERED;  //позиція
-//static int screen_top = SDL_WINDOWPOS_CENTERED;
-//static int audio_disable;
-//static int video_disable;
-//static int subtitle_disable;
-//static const char* wanted_stream_spec[AVMEDIA_TYPE_NB] = {0};
-//static int seek_by_bytes = -1;
-//static float seek_interval = 10;
-//static int display_disable;
-//static int borderless;
-//static int alwaysontop;
-//static int startup_volume = 100;
-//static int show_status = -1;
-//static int av_sync_type = AV_SYNC_AUDIO_MASTER;
-//static int64_t start_time = AV_NOPTS_VALUE;
-//static int64_t duration = AV_NOPTS_VALUE;
-//static int fast = 0;
-//static int genpts = 0;
-//static int lowres = 0;
-//static int decoder_reorder_pts = -1;
-//static int autoexit;
-//static int exit_on_keydown;
-//static int exit_on_mousedown;
-//static int loop = 1;
-//static int framedrop = -1;
-//static int infinite_buffer = -1;
-//static enum ShowMode show_mode = SHOW_MODE_NONE;
-//static const char *audio_codec_name;
-//static const char *subtitle_codec_name;
-//static const char *video_codec_name;
-//double rdftspeed = 0.02;
-//static int64_t cursor_last_shown;
-//static int cursor_hidden = 0;
-//#if CONFIG_AVFILTER
-//static const char **vfilters_list = NULL;
-//static int nb_vfilters = 0;
-//static char *afilters = NULL;
-//#endif
-//static int autorotate = 1;
-//static int find_stream_info = 1;
-//static int filter_nbthreads = 0;
-
-///* current context */
-//static int is_full_screen;          //прапорець (чи в повному екрані)
-//static int64_t audio_callback_time;
-
-//дисплейчики
-//static SDL_Window *window;
-//static SDL_Renderer *renderer;
-//static SDL_RendererInfo renderer_info = {0};
-//аудіодевайс куди ми аудіо граємо
-//static SDL_AudioDeviceID audio_dev;
-
-//static const struct TextureFormatEntry {
-//    enum AVPixelFormat format;
-//    int texture_fmt;
-//} sdl_texture_format_map[] = {
-//    { AV_PIX_FMT_RGB8,           SDL_PIXELFORMAT_RGB332 },
-//    { AV_PIX_FMT_RGB444,         SDL_PIXELFORMAT_RGB444 },
-//    { AV_PIX_FMT_RGB555,         SDL_PIXELFORMAT_RGB555 },
-//    { AV_PIX_FMT_BGR555,         SDL_PIXELFORMAT_BGR555 },
-//    { AV_PIX_FMT_RGB565,         SDL_PIXELFORMAT_RGB565 },
-//    { AV_PIX_FMT_BGR565,         SDL_PIXELFORMAT_BGR565 },
-//    { AV_PIX_FMT_RGB24,          SDL_PIXELFORMAT_RGB24 },
-//    { AV_PIX_FMT_BGR24,          SDL_PIXELFORMAT_BGR24 },
-//    { AV_PIX_FMT_0RGB32,         SDL_PIXELFORMAT_RGB888 },
-//    { AV_PIX_FMT_0BGR32,         SDL_PIXELFORMAT_BGR888 },
-//    { AV_PIX_FMT_NE(RGB0, 0BGR), SDL_PIXELFORMAT_RGBX8888 },
-//    { AV_PIX_FMT_NE(BGR0, 0RGB), SDL_PIXELFORMAT_BGRX8888 },
-//    { AV_PIX_FMT_RGB32,          SDL_PIXELFORMAT_ARGB8888 },
-//    { AV_PIX_FMT_RGB32_1,        SDL_PIXELFORMAT_RGBA8888 },
-//    { AV_PIX_FMT_BGR32,          SDL_PIXELFORMAT_ABGR8888 },
-//    { AV_PIX_FMT_BGR32_1,        SDL_PIXELFORMAT_BGRA8888 },
-//    { AV_PIX_FMT_YUV420P,        SDL_PIXELFORMAT_IYUV },
-//    { AV_PIX_FMT_YUYV422,        SDL_PIXELFORMAT_YUY2 },
-//    { AV_PIX_FMT_UYVY422,        SDL_PIXELFORMAT_UYVY },
-//    { AV_PIX_FMT_NONE,           SDL_PIXELFORMAT_UNKNOWN },
-//};
-
 //#if CONFIG_AVFILTER
 //static int opt_add_vfilter(void *optctx, const char *opt, const char *arg)
 //{
@@ -425,7 +210,8 @@ static const struct TextureFormatEntry {
 //}
 //#endif
 
-int MainWindow::cmp_audio_fmts(enum AVSampleFormat fmt1, int64_t channel_count1,
+static inline
+int cmp_audio_fmts(enum AVSampleFormat fmt1, int64_t channel_count1,
                                enum AVSampleFormat fmt2,
                                int64_t channel_count2) {
     /* If channel count == 1, planar and non-planar formats are the same */
@@ -435,7 +221,8 @@ int MainWindow::cmp_audio_fmts(enum AVSampleFormat fmt1, int64_t channel_count1,
       return channel_count1 != channel_count2 || fmt1 != fmt2;
 }
 
-int64_t MainWindow::get_valid_channel_layout(int64_t channel_layout, int channels)
+static inline
+int64_t get_valid_channel_layout(int64_t channel_layout, int channels)
 {
     if (channel_layout && av_get_channel_layout_nb_channels(channel_layout) == channels)
         return channel_layout;
@@ -443,7 +230,7 @@ int64_t MainWindow::get_valid_channel_layout(int64_t channel_layout, int channel
         return 0;
 }
 
-int MainWindow::packet_queue_put_private(PacketQueue *q, AVPacket *pkt)
+static int packet_queue_put_private(PacketQueue *q, AVPacket *pkt)
 {
     MyAVPacketList pkt1;
 
@@ -467,7 +254,7 @@ int MainWindow::packet_queue_put_private(PacketQueue *q, AVPacket *pkt)
     return 0;
 }
 
-int MainWindow::packet_queue_put(PacketQueue *q, AVPacket *pkt)
+static int packet_queue_put(PacketQueue *q, AVPacket *pkt)
 {
     AVPacket *pkt1;
     int ret;
@@ -489,13 +276,13 @@ int MainWindow::packet_queue_put(PacketQueue *q, AVPacket *pkt)
     return ret;
 }
 
-int MainWindow::packet_queue_put_nullpacket(PacketQueue *q, AVPacket *pkt, int stream_index)
+static int packet_queue_put_nullpacket(PacketQueue *q, AVPacket *pkt, int stream_index)
 {
     pkt->stream_index = stream_index;
     return packet_queue_put(q, pkt);
 }
 
-int MainWindow::packet_queue_init(PacketQueue *q)
+static int packet_queue_init(PacketQueue *q)
 {
     memset(q, 0, sizeof(PacketQueue));
     q->pkt_list = av_fifo_alloc(sizeof(MyAVPacketList));
@@ -515,7 +302,7 @@ int MainWindow::packet_queue_init(PacketQueue *q)
     return 0;
 }
 
-void MainWindow::packet_queue_flush(PacketQueue *q)
+static void packet_queue_flush(PacketQueue *q)
 {
     MyAVPacketList pkt1;
 
@@ -531,7 +318,7 @@ void MainWindow::packet_queue_flush(PacketQueue *q)
     SDL_UnlockMutex(q->mutex);
 }
 
-void MainWindow::packet_queue_destroy(PacketQueue *q)
+static void packet_queue_destroy(PacketQueue *q)
 {
     packet_queue_flush(q);
     av_fifo_freep(&q->pkt_list);
@@ -539,7 +326,7 @@ void MainWindow::packet_queue_destroy(PacketQueue *q)
     SDL_DestroyCond(q->cond);
 }
 
-void MainWindow::packet_queue_abort(PacketQueue *q)
+static void packet_queue_abort(PacketQueue *q)
 {
     SDL_LockMutex(q->mutex);
 
@@ -550,7 +337,7 @@ void MainWindow::packet_queue_abort(PacketQueue *q)
     SDL_UnlockMutex(q->mutex);
 }
 
-void MainWindow::packet_queue_start(PacketQueue *q)
+static void packet_queue_start(PacketQueue *q)
 {
     SDL_LockMutex(q->mutex);
     q->abort_request = 0;
@@ -559,7 +346,7 @@ void MainWindow::packet_queue_start(PacketQueue *q)
 }
 
 /* return < 0 if aborted, 0 if no packet and > 0 if packet.  */
-int MainWindow::packet_queue_get(PacketQueue *q, AVPacket *pkt, int block, int *serial)
+static int packet_queue_get(PacketQueue *q, AVPacket *pkt, int block, int *serial)
 {
     MyAVPacketList pkt1;
     int ret;
@@ -594,7 +381,7 @@ int MainWindow::packet_queue_get(PacketQueue *q, AVPacket *pkt, int block, int *
     return ret;
 }
 
-int MainWindow::decoder_init(Decoder *d, AVCodecContext *avctx, PacketQueue *queue, SDL_cond *empty_queue_cond) {
+static int decoder_init(Decoder *d, AVCodecContext *avctx, PacketQueue *queue, SDL_cond *empty_queue_cond) {
     memset(d, 0, sizeof(Decoder));
     d->pkt = av_packet_alloc();
     if (!d->pkt)
@@ -607,7 +394,7 @@ int MainWindow::decoder_init(Decoder *d, AVCodecContext *avctx, PacketQueue *que
     return 0;
 }
 
-int MainWindow::decoder_decode_frame(Decoder *d, AVFrame *frame, AVSubtitle *sub) {
+static int decoder_decode_frame(Decoder *d, AVFrame *frame, AVSubtitle *sub) {
     int ret = AVERROR(EAGAIN);
     //декодування фрейму або субтитру з пакету
     for (;;) {
@@ -701,18 +488,18 @@ int MainWindow::decoder_decode_frame(Decoder *d, AVFrame *frame, AVSubtitle *sub
     }
 }
 
-void MainWindow::decoder_destroy(Decoder *d) {
+static void decoder_destroy(Decoder *d) {
     av_packet_free(&d->pkt);
     avcodec_free_context(&d->avctx);
 }
 
-void MainWindow::frame_queue_unref_item(Frame *vp)
+static void frame_queue_unref_item(Frame *vp)
 {
     av_frame_unref(vp->frame);
     avsubtitle_free(&vp->sub);
 }
 
-int MainWindow::frame_queue_init(FrameQueue *f, PacketQueue *pktq, int max_size, int keep_last)
+static int frame_queue_init(FrameQueue *f, PacketQueue *pktq, int max_size, int keep_last)
 {
     int i;
     //алокуємо чергу фреймів
@@ -734,7 +521,7 @@ int MainWindow::frame_queue_init(FrameQueue *f, PacketQueue *pktq, int max_size,
     return 0;
 }
 
-void MainWindow::frame_queue_destroy(FrameQueue *f)
+static void frame_queue_destroy(FrameQueue *f)
 {
     int i;
     for (i = 0; i < f->max_size; i++) {
@@ -746,29 +533,29 @@ void MainWindow::frame_queue_destroy(FrameQueue *f)
     SDL_DestroyCond(f->cond);
 }
 
-void MainWindow::frame_queue_signal(FrameQueue *f)
+static void frame_queue_signal(FrameQueue *f)
 {
     SDL_LockMutex(f->mutex);
     SDL_CondSignal(f->cond);
     SDL_UnlockMutex(f->mutex);
 }
 
-Frame *MainWindow::frame_queue_peek(FrameQueue *f)
+static Frame *frame_queue_peek(FrameQueue *f)
 {
     return &f->queue[(f->rindex + f->rindex_shown) % f->max_size];
 }
 
-Frame *MainWindow::frame_queue_peek_next(FrameQueue *f)
+static Frame *frame_queue_peek_next(FrameQueue *f)
 {
     return &f->queue[(f->rindex + f->rindex_shown + 1) % f->max_size];
 }
 
-Frame *MainWindow::frame_queue_peek_last(FrameQueue *f)
+static Frame *frame_queue_peek_last(FrameQueue *f)
 {
     return &f->queue[f->rindex];
 }
 
-Frame *MainWindow::frame_queue_peek_writable(FrameQueue *f)
+static Frame *frame_queue_peek_writable(FrameQueue *f)
 {
     /* wait until we have space to put a new frame */
     SDL_LockMutex(f->mutex);
@@ -784,7 +571,7 @@ Frame *MainWindow::frame_queue_peek_writable(FrameQueue *f)
     return &f->queue[f->windex];
 }
 
-Frame *MainWindow::frame_queue_peek_readable(FrameQueue *f)
+static Frame *frame_queue_peek_readable(FrameQueue *f)
 {
     /* wait until we have a readable a new frame */
     SDL_LockMutex(f->mutex);
@@ -800,7 +587,7 @@ Frame *MainWindow::frame_queue_peek_readable(FrameQueue *f)
     return &f->queue[(f->rindex + f->rindex_shown) % f->max_size];
 }
 
-void MainWindow::frame_queue_push(FrameQueue *f)
+static void frame_queue_push(FrameQueue *f)
 {
     if (++f->windex == f->max_size)
         f->windex = 0;
@@ -810,7 +597,7 @@ void MainWindow::frame_queue_push(FrameQueue *f)
     SDL_UnlockMutex(f->mutex);
 }
 
-void MainWindow::frame_queue_next(FrameQueue *f)
+static void frame_queue_next(FrameQueue *f)
 {
     if (f->keep_last && !f->rindex_shown) {
         f->rindex_shown = 1;
@@ -825,12 +612,12 @@ void MainWindow::frame_queue_next(FrameQueue *f)
     SDL_UnlockMutex(f->mutex);
 }
 
-int MainWindow::frame_queue_nb_remaining(FrameQueue *f)
+static int frame_queue_nb_remaining(FrameQueue *f)
 {
     return f->size - f->rindex_shown;
 }
 
-int64_t MainWindow::frame_queue_last_pos(FrameQueue *f)
+static int64_t frame_queue_last_pos(FrameQueue *f)
 {
     Frame *fp = &f->queue[f->rindex];
     if (f->rindex_shown && fp->serial == f->pktq->serial)
@@ -839,7 +626,7 @@ int64_t MainWindow::frame_queue_last_pos(FrameQueue *f)
         return -1;
 }
 
-void MainWindow::decoder_abort(Decoder *d, FrameQueue *fq)
+static void decoder_abort(Decoder *d, FrameQueue *fq)
 {
     packet_queue_abort(d->queue);
     frame_queue_signal(fq);
@@ -848,7 +635,7 @@ void MainWindow::decoder_abort(Decoder *d, FrameQueue *fq)
     packet_queue_flush(d->queue);
 }
 
-void MainWindow::fill_rectangle(int x, int y, int w, int h)
+static inline void fill_rectangle(int x, int y, int w, int h)
 {
     SDL_Rect rect;
     rect.x = x;
@@ -859,7 +646,7 @@ void MainWindow::fill_rectangle(int x, int y, int w, int h)
         SDL_RenderFillRect(renderer, &rect);
 }
 
-int MainWindow::realloc_texture(SDL_Texture **texture, Uint32 new_format, int new_width, int new_height, SDL_BlendMode blendmode, int init_texture)
+static int realloc_texture(SDL_Texture **texture, Uint32 new_format, int new_width, int new_height, SDL_BlendMode blendmode, int init_texture)
 {
     Uint32 format;
     int access, w, h;
@@ -883,7 +670,7 @@ int MainWindow::realloc_texture(SDL_Texture **texture, Uint32 new_format, int ne
     return 0;
 }
 
-void MainWindow::calculate_display_rect(SDL_Rect *rect,
+static void calculate_display_rect(SDL_Rect *rect,
                                    int scr_xleft, int scr_ytop, int scr_width, int scr_height,
                                    int pic_width, int pic_height, AVRational pic_sar)
 {
@@ -910,7 +697,7 @@ void MainWindow::calculate_display_rect(SDL_Rect *rect,
     rect->h = FFMAX((int)height, 1);
 }
 
-void MainWindow::get_sdl_pix_fmt_and_blendmode(int format, Uint32 *sdl_pix_fmt, SDL_BlendMode *sdl_blendmode)
+static void get_sdl_pix_fmt_and_blendmode(int format, Uint32 *sdl_pix_fmt, SDL_BlendMode *sdl_blendmode)
 {
     int i;
     *sdl_blendmode = SDL_BLENDMODE_NONE;
@@ -928,7 +715,7 @@ void MainWindow::get_sdl_pix_fmt_and_blendmode(int format, Uint32 *sdl_pix_fmt, 
     }
 }
 
-int MainWindow::upload_texture(SDL_Texture **tex, AVFrame *frame, struct SwsContext **img_convert_ctx) {
+static int upload_texture(SDL_Texture **tex, AVFrame *frame, struct SwsContext **img_convert_ctx) {
     int ret = 0;
     Uint32 sdl_pix_fmt;
     SDL_BlendMode sdl_blendmode;
@@ -995,7 +782,7 @@ int MainWindow::upload_texture(SDL_Texture **tex, AVFrame *frame, struct SwsCont
     return ret;
 }
 
-void MainWindow::set_sdl_yuv_conversion_mode(AVFrame *frame)
+static void set_sdl_yuv_conversion_mode(AVFrame *frame)
 {
 #if SDL_VERSION_ATLEAST(2,0,8)
 	SDL_YUV_CONVERSION_MODE mode = SDL_YUV_CONVERSION_AUTOMATIC;
@@ -1011,7 +798,7 @@ void MainWindow::set_sdl_yuv_conversion_mode(AVFrame *frame)
 #endif
 }
 
-void MainWindow::video_image_display(VideoState *is)
+static void video_image_display(VideoState *is)
 {
     Frame *vp;
     Frame *sp = NULL;
@@ -1104,7 +891,7 @@ static inline int compute_mod(int a, int b) //обчислення остачі
     return a < 0 ? a%b + b : a%b;
 }
 
-void MainWindow::video_audio_display(VideoState *s)
+static void video_audio_display(VideoState *s)
 {
     int i, i_start, x, y1, y, ys, delay, n, nb_display_channels;
     int ch, channels, h, h2;
@@ -1246,7 +1033,7 @@ void MainWindow::video_audio_display(VideoState *s)
     }
 }
 
-void MainWindow::stream_component_close(VideoState *is, int stream_index)
+static void stream_component_close(VideoState *is, int stream_index)
 {
     AVFormatContext *ic = is->ic;
     AVCodecParameters *codecpar;
@@ -1303,7 +1090,7 @@ void MainWindow::stream_component_close(VideoState *is, int stream_index)
     }
 }
 
-void MainWindow::stream_close(VideoState *is)
+static void stream_close(VideoState *is)
 {
     //повний феіл або вихід
     /* XXX: use a special url_shutdown call to abort parse cleanly */
@@ -1341,7 +1128,7 @@ void MainWindow::stream_close(VideoState *is)
     av_free(is);
 }
 
-void MainWindow::do_exit(VideoState *is)
+static void do_exit(VideoState *is)
 {
     //вихід
     if (is) {
@@ -1365,10 +1152,10 @@ void MainWindow::do_exit(VideoState *is)
 
 static void sigterm_handler(int sig)
 {
-    exit(123);
+    exit(sig);
 }
 
-void MainWindow::set_default_window_size(int width, int height, AVRational sar)
+static void set_default_window_size(int width, int height, AVRational sar)
 {
     SDL_Rect rect;
     int max_width  = screen_width  ? screen_width  : INT_MAX;
@@ -1380,7 +1167,7 @@ void MainWindow::set_default_window_size(int width, int height, AVRational sar)
     default_height = rect.h;
 }
 
-int MainWindow::video_open(VideoState *is)
+static int video_open(VideoState *is)
 {
     int w,h;
 
@@ -1403,7 +1190,7 @@ int MainWindow::video_open(VideoState *is)
     return 0;
 }
 
-void MainWindow::video_display(VideoState *is)
+static void video_display(VideoState *is)
 {
     if (!is->width)
         video_open(is);
@@ -1417,7 +1204,7 @@ void MainWindow::video_display(VideoState *is)
     SDL_RenderPresent(renderer);
 }
 
-double MainWindow::get_clock(Clock *c)
+static double get_clock(Clock *c)
 {
     if (*c->queue_serial != c->serial)
         return NAN;
@@ -1429,7 +1216,7 @@ double MainWindow::get_clock(Clock *c)
     }
 }
 
-void MainWindow::set_clock_at(Clock *c, double pts, int serial, double time)
+static void set_clock_at(Clock *c, double pts, int serial, double time)
 {
     c->pts = pts;
     c->last_updated = time;
@@ -1437,19 +1224,19 @@ void MainWindow::set_clock_at(Clock *c, double pts, int serial, double time)
     c->serial = serial;
 }
 
-void MainWindow::set_clock(Clock *c, double pts, int serial)
+static void set_clock(Clock *c, double pts, int serial)
 {
     double time = av_gettime_relative() / 1000000.0;
     set_clock_at(c, pts, serial, time);
 }
 
-void MainWindow::set_clock_speed(Clock *c, double speed)
+static void set_clock_speed(Clock *c, double speed)
 {
     set_clock(c, get_clock(c), c->serial);
     c->speed = speed;
 }
 
-void MainWindow::init_clock(Clock *c, int *queue_serial)
+static void init_clock(Clock *c, int *queue_serial)
 {
     c->speed = 1.0; //швидкість
     c->paused = 0; //чи на паузі
@@ -1457,7 +1244,7 @@ void MainWindow::init_clock(Clock *c, int *queue_serial)
     set_clock(c, NAN, -1);
 }
 
-void MainWindow::sync_clock_to_slave(Clock *c, Clock *slave)
+static void sync_clock_to_slave(Clock *c, Clock *slave)
 {
     double clock = get_clock(c);
     double slave_clock = get_clock(slave);
@@ -1465,7 +1252,7 @@ void MainWindow::sync_clock_to_slave(Clock *c, Clock *slave)
         set_clock(c, slave_clock, slave->serial);
 }
 
-int MainWindow::get_master_sync_type(VideoState *is) {
+static int get_master_sync_type(VideoState *is) {
     if (is->av_sync_type == AV_SYNC_VIDEO_MASTER) {
         if (is->video_st)
             return AV_SYNC_VIDEO_MASTER;
@@ -1482,7 +1269,7 @@ int MainWindow::get_master_sync_type(VideoState *is) {
 }
 
 /* get the current master clock value */
-double MainWindow::get_master_clock(VideoState *is)
+static double get_master_clock(VideoState *is)
 {
     double val;
 
@@ -1500,7 +1287,7 @@ double MainWindow::get_master_clock(VideoState *is)
     return val;
 }
 
-void MainWindow::check_external_clock_speed(VideoState *is) {
+static void check_external_clock_speed(VideoState *is) {
    if ((is->video_stream >= 0 && is->videoq.nb_packets <= EXTERNAL_CLOCK_MIN_FRAMES) ||
        (is->audio_stream >= 0 && is->audioq.nb_packets <= EXTERNAL_CLOCK_MIN_FRAMES)) {
        set_clock_speed(&is->extclk, FFMAX(EXTERNAL_CLOCK_SPEED_MIN, is->extclk.speed - EXTERNAL_CLOCK_SPEED_STEP));
@@ -1514,7 +1301,7 @@ void MainWindow::check_external_clock_speed(VideoState *is) {
    }
 }
 
-void MainWindow::stream_seek(VideoState *is, int64_t pos, int64_t rel, int by_bytes)
+static void stream_seek(VideoState *is, int64_t pos, int64_t rel, int by_bytes)
 {
     if (!is->seek_req) {
         is->seek_pos = pos;
@@ -1527,7 +1314,7 @@ void MainWindow::stream_seek(VideoState *is, int64_t pos, int64_t rel, int by_by
     }
 }
 
-void MainWindow::stream_toggle_pause(VideoState *is)
+static void stream_toggle_pause(VideoState *is)
 {
     if (is->paused) {
         is->frame_timer += av_gettime_relative() / 1000000.0 - is->vidclk.last_updated;
@@ -1540,20 +1327,20 @@ void MainWindow::stream_toggle_pause(VideoState *is)
     is->paused = is->audclk.paused = is->vidclk.paused = is->extclk.paused = !is->paused;
 }
 
-void MainWindow::toggle_pause(VideoState *is)
+static void toggle_pause(VideoState *is)
 {
     //пауза/без паузи
     stream_toggle_pause(is);
     is->step = 0;
 }
 
-void MainWindow::toggle_mute(VideoState *is)
+static void toggle_mute(VideoState *is)
 {
     //вмикаємо/вимикаємо мут
     is->muted = !is->muted;
 }
 
-void MainWindow::update_volume(VideoState *is, int sign, double step)
+static void update_volume(VideoState *is, int sign, double step)
 {
     //змінити гучність
     double volume_level = is->audio_volume ? (20 * log(is->audio_volume / (double)SDL_MIX_MAXVOLUME) / log(10)) : -1000.0; //логарифмічно міняємо гучність
@@ -1561,7 +1348,7 @@ void MainWindow::update_volume(VideoState *is, int sign, double step)
     is->audio_volume = av_clip(is->audio_volume == new_volume ? (is->audio_volume + sign) : new_volume, 0, SDL_MIX_MAXVOLUME);
 }
 
-void MainWindow::step_to_next_frame(VideoState *is)
+static void step_to_next_frame(VideoState *is)
 {
     /* if the stream is paused unpause it, then step */
     if (is->paused)
@@ -1569,7 +1356,7 @@ void MainWindow::step_to_next_frame(VideoState *is)
     is->step = 1;
 }
 
-double MainWindow::compute_target_delay(double delay, VideoState *is)
+static double compute_target_delay(double delay, VideoState *is)
 {
     double sync_threshold, diff = 0;
 
@@ -1599,7 +1386,7 @@ double MainWindow::compute_target_delay(double delay, VideoState *is)
     return delay;
 }
 
-double MainWindow::vp_duration(VideoState *is, Frame *vp, Frame *nextvp) {
+static double vp_duration(VideoState *is, Frame *vp, Frame *nextvp) {
     if (vp->serial == nextvp->serial) {
         double duration = nextvp->pts - vp->pts;
         if (isnan(duration) || duration <= 0 || duration > is->max_frame_duration)
@@ -1611,13 +1398,13 @@ double MainWindow::vp_duration(VideoState *is, Frame *vp, Frame *nextvp) {
     }
 }
 
-void MainWindow::update_video_pts(VideoState *is, double pts, int64_t pos, int serial) {
+static void update_video_pts(VideoState *is, double pts, /*int64_t pos,*/ int serial) {
     set_clock(&is->vidclk, pts, serial);
     sync_clock_to_slave(&is->extclk, &is->vidclk);
 }
 
 /* called to display each frame */
-void MainWindow::video_refresh(void *opaque, double *remaining_time)
+static void video_refresh(void *opaque, double *remaining_time)
 {
     VideoState *is = (VideoState*)opaque;
     double time;
@@ -1675,7 +1462,7 @@ retry:
 
             SDL_LockMutex(is->pictq.mutex);
             if (!isnan(vp->pts))
-                update_video_pts(is, vp->pts, vp->pos, vp->serial);
+                update_video_pts(is, vp->pts, /*vp->pos,*/ vp->serial);
             SDL_UnlockMutex(is->pictq.mutex);
 
             if (frame_queue_nb_remaining(&is->pictq) > 1) {
@@ -1787,7 +1574,7 @@ display:
     }
 }
 
-int MainWindow::queue_picture(VideoState *is, AVFrame *src_frame, double pts, double duration, int64_t pos, int serial)
+static int queue_picture(VideoState *is, AVFrame *src_frame, double pts, double duration, int64_t pos, int serial)
 {
     Frame *vp;
 
@@ -1818,7 +1605,7 @@ int MainWindow::queue_picture(VideoState *is, AVFrame *src_frame, double pts, do
     return 0;
 }
 
-int MainWindow::get_video_frame(VideoState *is, AVFrame *frame)
+static int get_video_frame(VideoState *is, AVFrame *frame)
 {
     int got_picture;
 
@@ -2083,7 +1870,7 @@ int MainWindow::get_video_frame(VideoState *is, AVFrame *frame)
 //}
 //#endif  /* CONFIG_AVFILTER */
 
-int MainWindow::audio_thread(void *arg)
+static int audio_thread(void *arg)
 {
     VideoState *is = (VideoState*)arg;
     AVFrame *frame = av_frame_alloc();
@@ -2169,7 +1956,7 @@ int MainWindow::audio_thread(void *arg)
     return ret;
 }
 
-int MainWindow::decoder_start(Decoder *d, int (*fn)(void *)/*std::function<int()>fn*/, const char *thread_name, void* arg)
+static int decoder_start(Decoder *d, int (*fn)(void *)/*std::function<int()>fn*/, const char *thread_name, void* arg)
 {
     //запуск декодування
     packet_queue_start(d->queue);
@@ -2181,7 +1968,7 @@ int MainWindow::decoder_start(Decoder *d, int (*fn)(void *)/*std::function<int()
     return 0;
 }
 
-int MainWindow::video_thread(void *arg)
+static int video_thread(void *arg)
 {
     VideoState *is = (VideoState*)arg;
     AVFrame *frame = av_frame_alloc();
@@ -2288,7 +2075,7 @@ int MainWindow::video_thread(void *arg)
     return 0;
 }
 
-int MainWindow::subtitle_thread(void *arg)
+static int subtitle_thread(void *arg)
 {
     VideoState *is = (VideoState*)arg;
     Frame *sp;
@@ -2323,7 +2110,7 @@ int MainWindow::subtitle_thread(void *arg)
 }
 
 /* copy samples for viewing in editor window */
-void MainWindow::update_sample_display(VideoState *is, short *samples, int samples_size)
+static void update_sample_display(VideoState *is, short *samples, int samples_size)
 {
     int size, len;
 
@@ -2341,7 +2128,7 @@ void MainWindow::update_sample_display(VideoState *is, short *samples, int sampl
     }
 }
 
-int MainWindow::synchronize_audio(VideoState *is, int nb_samples)
+static int synchronize_audio(VideoState *is, int nb_samples)
 {
     int wanted_nb_samples = nb_samples;
 
@@ -2389,7 +2176,7 @@ int MainWindow::synchronize_audio(VideoState *is, int nb_samples)
  * stored in is->audio_buf, with size in bytes given by the return
  * value.
  */
-int MainWindow::audio_decode_frame(VideoState *is)
+static int audio_decode_frame(VideoState *is)
 {
     int data_size, resampled_data_size;
     int64_t dec_channel_layout;
@@ -2502,7 +2289,7 @@ int MainWindow::audio_decode_frame(VideoState *is)
 }
 
 /* prepare a new audio buffer */
-void MainWindow::sdl_audio_callback(void *opaque, Uint8 *stream, int len)
+static void sdl_audio_callback(void *opaque, Uint8 *stream, int len)
 {
     VideoState *is = (VideoState*)opaque;
     int audio_size, len1;
@@ -2548,7 +2335,7 @@ void MainWindow::sdl_audio_callback(void *opaque, Uint8 *stream, int len)
     }
 }
 
-int MainWindow::audio_open(void *opaque, int64_t wanted_channel_layout, int wanted_nb_channels, int wanted_sample_rate, struct AudioParams *audio_hw_params)
+static int audio_open(void *opaque, int64_t wanted_channel_layout, int wanted_nb_channels, int wanted_sample_rate, struct AudioParams *audio_hw_params)
 {
     //відкриваємо аудіодевайс
 	SDL_AudioSpec wanted_spec, spec;
@@ -2571,7 +2358,7 @@ int MainWindow::audio_open(void *opaque, int64_t wanted_channel_layout, int want
 	wanted_spec.freq = wanted_sample_rate;
 	if (wanted_spec.freq <= 0 || wanted_spec.channels <= 0) {
         //        av_log(NULL, AV_LOG_ERROR, "Invalid sample rate or channel count!\n");
-                QMessageBox::critical(this, "Помилка", "Недопустима частота дискретизації або кількість каналів!");
+                QMessageBox::critical(m, "Помилка", "Недопустима частота дискретизації або кількість каналів!");
                 return -1;
 	}
 	while (next_sample_rate_idx && next_sample_rates[next_sample_rate_idx] >= wanted_spec.freq)
@@ -2592,7 +2379,7 @@ int MainWindow::audio_open(void *opaque, int64_t wanted_channel_layout, int want
 			if (!wanted_spec.freq) {
                 //                av_log(NULL, AV_LOG_ERROR,
                 //                       "No more combinations to try, audio open failed\n");
-                QMessageBox::critical(this, "Помилка", "Не вдалось знайти підходящу для відтворення аудіоконфігурацію");
+                QMessageBox::critical(m, "Помилка", "Не вдалось знайти підходящу для відтворення аудіоконфігурацію");
                 return -1;
 			}
 		}
@@ -2601,7 +2388,7 @@ int MainWindow::audio_open(void *opaque, int64_t wanted_channel_layout, int want
 	if (spec.format != AUDIO_S16SYS) {
         //        av_log(NULL, AV_LOG_ERROR,
         //               "SDL advised audio format %d is not supported!\n", spec.format);
-            QMessageBox::critical(this, "Помилка", "Підібрана SDL конфігурація не підтримується");
+            QMessageBox::critical(m, "Помилка", "Підібрана SDL конфігурація не підтримується");
             return -1;
 	}
 	if (spec.channels != wanted_spec.channels) {
@@ -2609,7 +2396,7 @@ int MainWindow::audio_open(void *opaque, int64_t wanted_channel_layout, int want
 		if (!wanted_channel_layout) {
             //            av_log(NULL, AV_LOG_ERROR,
             //                   "SDL advised channel count %d is not supported!\n", spec.channels);
-            QMessageBox::critical(this, "Помилка", "Недопустима кількість каналів!");
+            QMessageBox::critical(m, "Помилка", "Недопустима кількість каналів!");
             return -1;
 		}
 	}
@@ -2627,90 +2414,8 @@ int MainWindow::audio_open(void *opaque, int64_t wanted_channel_layout, int want
 	return spec.size;
 }
 
-//int MainWindow::audio_open(void *opaque, AVChannelLayout *wanted_channel_layout, int wanted_sample_rate, struct AudioParams *audio_hw_params)
-//{
-    
-//    SDL_AudioSpec wanted_spec, spec;
-//    const char *env;
-//    static const int next_nb_channels[] = {0, 0, 1, 6, 2, 6, 4, 6};
-//    static const int next_sample_rates[] = {0, 44100, 48000, 96000, 192000};
-//    int next_sample_rate_idx = FF_ARRAY_ELEMS(next_sample_rates) - 1;
-//    int wanted_nb_channels = wanted_channel_layout->nb_channels;
-
-//    env = SDL_getenv("SDL_AUDIO_CHANNELS");
-//    if (env) {
-//        wanted_nb_channels = atoi(env);
-//        av_channel_layout_uninit(wanted_channel_layout);
-//        av_channel_layout_default(wanted_channel_layout, wanted_nb_channels);
-//    }
-//    if (wanted_channel_layout->order != AV_CHANNEL_ORDER_NATIVE) {
-//        av_channel_layout_uninit(wanted_channel_layout);
-//        av_channel_layout_default(wanted_channel_layout, wanted_nb_channels);
-//    }
-//    wanted_nb_channels = wanted_channel_layout->nb_channels;
-//    wanted_spec.channels = wanted_nb_channels;
-//    wanted_spec.freq = wanted_sample_rate;
-//    if (wanted_spec.freq <= 0 || wanted_spec.channels <= 0) {
-////        av_log(NULL, AV_LOG_ERROR, "Invalid sample rate or channel count!\n");
-//        QMessageBox::critical(this, "Помилка", "Недопустима частота дискретизації або кількість каналів!");
-//        return -1;
-//    }
-//    while (next_sample_rate_idx && next_sample_rates[next_sample_rate_idx] >= wanted_spec.freq)
-//        next_sample_rate_idx--;
-//    wanted_spec.format = AUDIO_S16SYS;
-//    wanted_spec.silence = 0;
-//    wanted_spec.samples = FFMAX(SDL_AUDIO_MIN_BUFFER_SIZE, 2 << av_log2(wanted_spec.freq / SDL_AUDIO_MAX_CALLBACKS_PER_SEC));
-//    wanted_spec.callback = sdl_audio_callback;
-//    wanted_spec.userdata = opaque;
-//    //намагаємось відкрити аудіодевайс
-//    while (!(audio_dev = SDL_OpenAudioDevice(NULL, 0, &wanted_spec, &spec, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE | SDL_AUDIO_ALLOW_CHANNELS_CHANGE))) {
-////        av_log(NULL, AV_LOG_WARNING, "SDL_OpenAudio (%d channels, %d Hz): %s\n",
-////               wanted_spec.channels, wanted_spec.freq, SDL_GetError());
-//        wanted_spec.channels = next_nb_channels[FFMIN(7, wanted_spec.channels)];
-//        if (!wanted_spec.channels) {
-//            wanted_spec.freq = next_sample_rates[next_sample_rate_idx--];
-//            wanted_spec.channels = wanted_nb_channels;
-//            if (!wanted_spec.freq) {
-////                av_log(NULL, AV_LOG_ERROR,
-////                       "No more combinations to try, audio open failed\n");
-//                QMessageBox::critical(this, "Помилка", "Не вдалось знайти підходящу для відтворення аудіоконфігурацію");
-//                return -1;
-//            }
-//        }
-//        av_channel_layout_default(wanted_channel_layout, wanted_spec.channels);
-//    }
-//    if (spec.format != AUDIO_S16SYS) {
-////        av_log(NULL, AV_LOG_ERROR,
-////               "SDL advised audio format %d is not supported!\n", spec.format);
-//        QMessageBox::critical(this, "Помилка", "Підібрана SDL конфігурація не підтримується");
-//        return -1;
-//    }
-//    if (spec.channels != wanted_spec.channels) {
-//        av_channel_layout_uninit(wanted_channel_layout);
-//        av_channel_layout_default(wanted_channel_layout, spec.channels);
-//        if (wanted_channel_layout->order != AV_CHANNEL_ORDER_NATIVE) {
-////            av_log(NULL, AV_LOG_ERROR,
-////                   "SDL advised channel count %d is not supported!\n", spec.channels);
-//            QMessageBox::critical(this, "Помилка", "Недопустима кількість каналів!");
-//            return -1;
-//        }
-//    }
-
-//    audio_hw_params->fmt = AV_SAMPLE_FMT_S16;
-//    audio_hw_params->freq = spec.freq;
-//    if (av_channel_layout_copy(&audio_hw_params->ch_layout, wanted_channel_layout) < 0)
-//        return -1;
-//    audio_hw_params->frame_size = av_samples_get_buffer_size(NULL, audio_hw_params->ch_layout.nb_channels, 1, audio_hw_params->fmt, 1);
-//    audio_hw_params->bytes_per_sec = av_samples_get_buffer_size(NULL, audio_hw_params->ch_layout.nb_channels, audio_hw_params->freq, audio_hw_params->fmt, 1);
-//    if (audio_hw_params->bytes_per_sec <= 0 || audio_hw_params->frame_size <= 0) {
-////        av_log(NULL, AV_LOG_ERROR, "av_samples_get_buffer_size failed\n");
-//        return -1;
-//    }
-//    return spec.size;
-//}
-
 /* open a given stream. Return 0 if OK */
-int MainWindow::stream_component_open(VideoState *is, int stream_index)
+static int stream_component_open(VideoState *is, int stream_index)
 {
     //відкриваємо такий-то стрім і пихаємо у відеостейт
     AVFormatContext *ic = is->ic;
@@ -2748,12 +2453,12 @@ int MainWindow::stream_component_open(VideoState *is, int stream_index)
     if (!codec) {
         if (forced_codec_name) /*av_log(NULL, AV_LOG_WARNING,
                                       "No codec could be found with name '%s'\n", forced_codec_name)*/
-            QMessageBox::warning(this, "","");
+            QMessageBox::warning(m, "","");
         else                   /*av_log(NULL, AV_LOG_WARNING,
                                       "No decoder could be found for codec %s\n", avcodec_get_name(avctx->codec_id))*/
         {
             std::string str = avcodec_get_name(avctx->codec_id);
-            QMessageBox::warning(this, "Увага", "Не вдалось знайти декодувальник для кодеку " + QString::fromStdString(str));
+            QMessageBox::warning(m, "Увага", "Не вдалось знайти декодувальник для кодеку " + QString::fromStdString(str));
         }
         ret = AVERROR(EINVAL);
         goto fail;
@@ -2770,19 +2475,19 @@ int MainWindow::stream_component_open(VideoState *is, int stream_index)
     if (fast)
         avctx->flags2 |= AV_CODEC_FLAG2_FAST;
 
-    opts = filter_codec_opts(codec_opts, avctx->codec_id, ic, ic->streams[stream_index], codec);
-    if (!av_dict_get(opts, "threads", NULL, 0))
-        av_dict_set(&opts, "threads", "auto", 0);
-    if (stream_lowres)
-        av_dict_set_int(&opts, "lowres", stream_lowres, 0);
-    if ((ret = avcodec_open2(avctx, codec, &opts)) < 0) {
+//    opts = filter_codec_opts(codec_opts, avctx->codec_id, ic, ic->streams[stream_index], codec);
+//    if (!av_dict_get(opts, "threads", NULL, 0))
+//        av_dict_set(&opts, "threads", "auto", 0);
+//    if (stream_lowres)
+//        av_dict_set_int(&opts, "lowres", stream_lowres, 0);
+    if ((ret = avcodec_open2(avctx, codec, NULL)) < 0) {
         goto fail;
     }
-    if ((t = av_dict_get(opts, "", NULL, AV_DICT_IGNORE_SUFFIX))) {
-//        av_log(NULL, AV_LOG_ERROR, "Option %s not found.\n", t->key);
-        ret =  AVERROR_OPTION_NOT_FOUND;
-        goto fail;
-    }
+//    if ((t = av_dict_get(opts, "", NULL, AV_DICT_IGNORE_SUFFIX))) {
+////        av_log(NULL, AV_LOG_ERROR, "Option %s not found.\n", t->key);
+//        ret =  AVERROR_OPTION_NOT_FOUND;
+//        goto fail;
+//    }
 
     is->eof = 0;
     ic->streams[stream_index]->discard = AVDISCARD_DEFAULT;
@@ -2867,25 +2572,25 @@ int MainWindow::stream_component_open(VideoState *is, int stream_index)
 fail:
     avcodec_free_context(&avctx);
 out:
-    av_dict_free(&opts);
+//    av_dict_free(&opts);
 
     return ret;
 }
 
-int MainWindow::decode_interrupt_cb(void *ctx)
+static int decode_interrupt_cb(void *ctx)
 {
     VideoState *is = (VideoState*)ctx;
     return is->abort_request;
 }
 
-int MainWindow::stream_has_enough_packets(AVStream *st, int stream_id, PacketQueue *queue) {
+static int stream_has_enough_packets(AVStream *st, int stream_id, PacketQueue *queue) {
     return stream_id < 0 ||
            queue->abort_request ||
            (st->disposition & AV_DISPOSITION_ATTACHED_PIC) ||
            queue->nb_packets > MIN_FRAMES && (!queue->duration || av_q2d(st->time_base) * queue->duration > 1.0);
 }
 
-int MainWindow::is_realtime(AVFormatContext *s)
+static int is_realtime(AVFormatContext *s)
 {
     //шо
     if(   !strcmp(s->iformat->name, "rtp")
@@ -2903,7 +2608,7 @@ int MainWindow::is_realtime(AVFormatContext *s)
 }
 
 /* this thread gets the stream from the disk or the network */
-int MainWindow::read_thread(void *arg)
+static int read_thread(void *arg)
 {
     VideoState *is = (VideoState*)arg;
     AVFormatContext *ic = NULL;
@@ -2940,24 +2645,24 @@ int MainWindow::read_thread(void *arg)
     }
     ic->interrupt_callback.callback = decode_interrupt_cb;
     ic->interrupt_callback.opaque = is;
-    if (!av_dict_get(format_opts, "scan_all_pmts", NULL, AV_DICT_MATCH_CASE)) {
-        av_dict_set(&format_opts, "scan_all_pmts", "1", AV_DICT_DONT_OVERWRITE);
-        scan_all_pmts_set = 1;
-    }
-    err = avformat_open_input(&ic, is->filename, is->iformat, &format_opts); //відкриваємо форматктх для файлу із таким то форматом
+//    if (!av_dict_get(format_opts, "scan_all_pmts", NULL, AV_DICT_MATCH_CASE)) {
+//        av_dict_set(&format_opts, "scan_all_pmts", "1", AV_DICT_DONT_OVERWRITE);
+//        scan_all_pmts_set = 1;
+//    }
+    err = avformat_open_input(&ic, is->filename, is->iformat, NULL); //відкриваємо форматктх для файлу із таким то форматом
     if (err < 0) {
 //        print_error(is->filename, err);
         ret = -1;
         goto fail;
     }
-    if (scan_all_pmts_set)
-        av_dict_set(&format_opts, "scan_all_pmts", NULL, AV_DICT_MATCH_CASE);
+//    if (scan_all_pmts_set)
+//        av_dict_set(&format_opts, "scan_all_pmts", NULL, AV_DICT_MATCH_CASE);
 
-    if ((t = av_dict_get(format_opts, "", NULL, AV_DICT_IGNORE_SUFFIX))) {
+//    if ((t = av_dict_get(format_opts, "", NULL, AV_DICT_IGNORE_SUFFIX))) {
 //        av_log(NULL, AV_LOG_ERROR, "Option %s not found.\n", t->key);
-        ret = AVERROR_OPTION_NOT_FOUND;
-        goto fail;
-    }
+//        ret = AVERROR_OPTION_NOT_FOUND;
+//        goto fail;
+//    }
     is->ic = ic;
 
     if (genpts)
@@ -2967,14 +2672,14 @@ int MainWindow::read_thread(void *arg)
 
     if (find_stream_info) {
         //шукаємо стрім інфо
-        AVDictionary **opts = setup_find_stream_info_opts(ic, codec_opts);
-        int orig_nb_streams = ic->nb_streams;
+//        AVDictionary **opts = setup_find_stream_info_opts(ic, codec_opts);
+//        int orig_nb_streams = ic->nb_streams;
 
-        err = avformat_find_stream_info(ic, opts);
+        err = avformat_find_stream_info(ic, NULL);
 
-        for (i = 0; i < orig_nb_streams; i++)
-            av_dict_free(&opts[i]);
-        av_freep(&opts);
+//        for (i = 0; i < orig_nb_streams; i++)
+//            av_dict_free(&opts[i]);
+//        av_freep(&opts);
 
         if (err < 0) {
 //            av_log(NULL, AV_LOG_WARNING,
@@ -3084,7 +2789,7 @@ int MainWindow::read_thread(void *arg)
 //        av_log(NULL, AV_LOG_FATAL, "Failed to open file '%s' or configure filtergraph\n",
 //               is->filename);
 //        emit SendMessage(1, "Не вдалось відкрити файл " + QString::fromStdString(is->filename));
-        QMessageBox::critical(this, "Помилка", "Не вдалось відкрити файл " + QString::fromStdString(is->filename));
+        QMessageBox::critical(m, "Помилка", "Не вдалось відкрити файл " + QString::fromStdString(is->filename));
         ret = -1;
         goto fail;
     }
@@ -3238,7 +2943,7 @@ int MainWindow::read_thread(void *arg)
     return 0;
 }
 
-VideoState *MainWindow::stream_open(const char *filename,
+static VideoState *stream_open(const char *filename,
                                AVInputFormat *iformat)
 {
     VideoState *is;
@@ -3300,7 +3005,7 @@ fail:
     return is;
 }
 
-void MainWindow::stream_cycle_channel(VideoState *is, int codec_type)
+static void stream_cycle_channel(VideoState *is, int codec_type)
 {
     AVFormatContext *ic = is->ic;
     int start_index, stream_index;
@@ -3379,13 +3084,13 @@ void MainWindow::stream_cycle_channel(VideoState *is, int codec_type)
 }
 
 
-void MainWindow::toggle_full_screen(VideoState *is)
+static void toggle_full_screen(VideoState *is)
 {
     is_full_screen = !is_full_screen;
     SDL_SetWindowFullscreen(window, is_full_screen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
 }
 
-void MainWindow::toggle_audio_display(VideoState *is)
+static void toggle_audio_display(VideoState *is)
 {
     int next = is->show_mode;
     do {
@@ -3397,7 +3102,7 @@ void MainWindow::toggle_audio_display(VideoState *is)
     }
 }
 
-void MainWindow::refresh_loop_wait_event(VideoState *is, SDL_Event *event) {
+static void refresh_loop_wait_event(VideoState *is, SDL_Event *event) {
     double remaining_time = 0.0;
     SDL_PumpEvents();
     while (!SDL_PeepEvents(event, 1, SDL_GETEVENT, SDL_FIRSTEVENT, SDL_LASTEVENT)) {
@@ -3414,7 +3119,7 @@ void MainWindow::refresh_loop_wait_event(VideoState *is, SDL_Event *event) {
     }
 }
 
-void MainWindow::seek_chapter(VideoState *is, int incr)
+static void seek_chapter(VideoState *is, int incr)
 {
     int64_t pos = get_master_clock(is) * AV_TIME_BASE;
     int i;
@@ -3442,7 +3147,7 @@ void MainWindow::seek_chapter(VideoState *is, int incr)
 }
 
 /* handle an event sent by the GUI */
-void MainWindow::event_loop(VideoState *cur_stream)
+static void event_loop(VideoState *cur_stream)
 {
     SDL_Event event;
     double incr, pos, frac;
@@ -3738,7 +3443,7 @@ void MainWindow::event_loop(VideoState *cur_stream)
 //   return 0;
 //}
 
-//static int dummy;
+static int dummy;
 
 //static const OptionDef options[] = {
 //    CMDUTILS_COMMON_OPTIONS
@@ -3775,10 +3480,10 @@ void MainWindow::event_loop(VideoState *cur_stream)
 //    { "window_title", OPT_STRING | HAS_ARG, { &window_title }, "set window title", "window title" },
 //    { "left", OPT_INT | HAS_ARG | OPT_EXPERT, { &screen_left }, "set the x position for the left of the window", "x pos" },
 //    { "top", OPT_INT | HAS_ARG | OPT_EXPERT, { &screen_top }, "set the y position for the top of the window", "y pos" },
-//#if CONFIG_AVFILTER
-//    { "vf", OPT_EXPERT | HAS_ARG, { .func_arg = opt_add_vfilter }, "set video filters", "filter_graph" },
-//    { "af", OPT_STRING | HAS_ARG, { &afilters }, "set audio filters", "filter_graph" },
-//#endif
+////#if CONFIG_AVFILTER
+////    { "vf", OPT_EXPERT | HAS_ARG, { .func_arg = opt_add_vfilter }, "set video filters", "filter_graph" },
+////    { "af", OPT_STRING | HAS_ARG, { &afilters }, "set audio filters", "filter_graph" },
+////#endif
 //    { "rdftspeed", OPT_INT | HAS_ARG| OPT_AUDIO | OPT_EXPERT, { &rdftspeed }, "rdft speed", "msecs" },
 //    { "showmode", HAS_ARG, { .func_arg = opt_show_mode}, "select show mode (0 = video, 1 = waves, 2 = RDFT)", "mode" },
 //    { "i", OPT_BOOL, { &dummy}, "read specified file", "input_file"},
@@ -3836,12 +3541,16 @@ void MainWindow::event_loop(VideoState *cur_stream)
 //}
 
 /* Called from the main */
-int MainWindow::init()
+int init()
 {
     int flags;
     VideoState *is;
-
-    init_dynload(); //Initialize dynamic library loading.
+    
+    /*if(m == NULL)
+        m = this;*///передача форми у статичний об'єкт для того, аби використовувати її при виконанні
+    //статичних методів (у яких просто this не можна використати)
+    
+    /*init_dynload();*/ //Initialize dynamic library loading.
 
     //налаштування логгінга
 //    av_log_set_flags(AV_LOG_SKIP_REPEATED);
@@ -3886,7 +3595,7 @@ int MainWindow::init()
     if (SDL_Init (flags)) {
 //        av_log(NULL, AV_LOG_FATAL, "Could not initialize SDL - %s\n", SDL_GetError());
 //        av_log(NULL, AV_LOG_FATAL, "(Did you set the DISPLAY variable?)\n");
-        QMessageBox::critical(this, "Помилка","Не вдалось ініціалізувати SDL");
+        QMessageBox::critical(m, "Помилка","Не вдалось ініціалізувати SDL");
         exit(1);
     }
 
@@ -3926,7 +3635,7 @@ int MainWindow::init()
         }
         if (!window || !renderer || !renderer_info.num_texture_formats) {
 //            av_log(NULL, AV_LOG_FATAL, "Failed to create window or renderer: %s", SDL_GetError());
-            QMessageBox::critical(this, "Помилка","Не вдалось створити вікно або рендерер");            
+            QMessageBox::critical(m, "Помилка","Не вдалось створити вікно або рендерер");            
             do_exit(NULL);
         }
     }
@@ -3935,7 +3644,7 @@ int MainWindow::init()
     if (!is) {
 //        av_log(NULL, AV_LOG_FATAL, "Failed to initialize VideoState!\n");
 //        do_exit(NULL);
-        QMessageBox::critical(this, "Помилка", "Не вдалось ініціалізувати VideoState");
+        QMessageBox::critical(m, "Помилка", "Не вдалось ініціалізувати VideoState");
         return 0;
     }
 
@@ -3947,93 +3656,59 @@ int MainWindow::init()
     return 0;
 }
 
-////ffmpeg libraries
-//extern "C"{
-//#include <libavcodec/avcodec.h>
-//#include <libavformat/avformat.h>
-//#include <libswscale/swscale.h>
-//#include <SDL2/SDL.h>
-//#include <SDL2/SDL_thread.h>
-//}
+std::string reformat_file_name(QString filename){
+    std::string s;
+    std::string fn_std_str = filename.toStdString();
+    s += "\"";
+    for(int i = 0; i < fn_std_str.length(); i++){
+        if(fn_std_str[i] == '/')
+            s += '\\';
+        else
+            s += fn_std_str[i];
+    }
+    s += "\"";
+    return s;
+}
 
-//void MainWindow::init_and_events(){
-   
-//    //Знаходимо інформацію про потоки
-//    if (avformat_find_stream_info(is->pFormatCtx, NULL) < 0)
-//    {
-//        QMessageBox::warning(this, "Помилка", "Не вдалось знайти інформацію про потоки контейнеру.");
-//        return;
-//    }
-//    if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER)) {
-//        QMessageBox::warning(this, "Помилка", "Не вдалось ініціалізувати SDL.");
-//        return;
-//    }
-//    is->av_sync_type = AV_SYNC_VIDEO_MASTER;
-    
-//    flush_pkt = av_packet_alloc();
-//    flush_pkt->data = (uint8_t*)"FLUSH";
-    
-//    screen = SDL_CreateWindow("", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 1280, 720, SDL_WINDOW_RESIZABLE);
-//    if(!screen) {
-//        QMessageBox::warning(this, "Помилка", "Не вдалось ініціалізувати вікно перегляду.");
-//        return;
-//    }
-//    screen_mutex = SDL_CreateMutex();
-//    renderer = SDL_CreateRenderer(screen, -1, 0);
-//    if (!renderer){
-//        QMessageBox::warning(this, "Помилка", "Не вдалось ініціалізувати рендерер.");
-//        return;
-//    }
-//    texture = SDL_CreateTexture(
-//            renderer,
-//            SDL_PIXELFORMAT_YV12,
-//            SDL_TEXTUREACCESS_STREAMING,
-//            1280,
-//            720
-//        );
-//}
+void MainWindow::on_action_open_f_triggered()
+{
+    QString file_name = QFileDialog::getOpenFileName(this, "Відкрити файл", QDir::currentPath(), "Медіафайли (*.3g2 *.3gp *.3gp2 *.3gpp *.669 *.a52 *.aac *.ac3 "
+                                                                                                 "*.adt *.adt *.adts *.aif *.aifc *.aiff *.amb *.amr *.amv *.aob "
+                                                                                                 "*.ape *.asf *.au *.avi *.awb *.bik *.bin *.caf *.crf *.dav *.divx "
+                                                                                                 "*.drc *.dv *.dvr-ms *.evo *.f4v *.flac *.flv *.gvi *.gxf *.iso "
+                                                                                                 "*.it *.kar *.m1v *.m2t *.m2ts *.m2v *.m4a *.m4b *.m4p *.m4v "
+                                                                                                 "*.m5p *.mid *.mka *.mkv *.mlp *.mod *.mov *.mp1 *.mp2 "
+                                                                                                 "*.mp2v *.mp3 *.mp4 *.mp4v *.mpa *.mpc *.mpe *.mpeg *.mpeg1 *.mpeg2 "
+                                                                                                 "*.mpeg4 *.mpg *.mpga *.mpv2 *.mts *.mtv *.mus *.mxf *.mxg *.nsv "
+                                                                                                 "*.nuv *.oga *.ogg *.ogm *.ogv *.ogx *.oma *.opus *.ps *.qcp "
+                                                                                                 "*.ra *.rec *.rm *.rmi *.rmvb *.rpl *.s3m *.sid *.spx *.tak *.thd *.thp *.tod *.tp "
+                                                                                                 "*.ts *.tta *.tts *.txd *.vob *.voc *.vqf *.vro *.w64 *.wav *.webm *.wm *.wma *.wmv "
+                                                                                                 "*.wv *.xa *.xm) ;;"
+                                                                                                 "Відеофайли (*.3g2 *.3gp *.3gp2 *.3gpp *.amv *.asf *.avi *.bik *.bin "
+                                                                                                 "*.crf *.dav *.divx *.drc *.dv *.dvr-ms *.evo *.f4v *.flv *.gvi *.gxf "
+                                                                                                 "*.iso *.m1v *.m2v *.m2t *.m2ts *.m4v *.mkv *.mov *.mp2 *.mp2v *.mp4 "
+                                                                                                 "*.mp4v *.mpe *.mpeg *.mpeg1 *.mpeg2 *.mpeg4 *.mpg *.mpv2 *.mts *.mtv "
+                                                                                                 "*.mxf *.mxg *.nsv *.nuv *.ogg *.ogm *.ogv *.ogx *.ps *.rec *.rm *.rmvb "
+                                                                                                 "*.rpl *.thp *.tod *.tp *.ts *.tts *.txd *.vob *.vro *.webm *.wm *.wmv);;"
+                                                                                                 "Аудіофайли (*.3ga *.669 *.a52 *.aac *.ac3 *.adt *.adt *.adts *.aif "
+                                                                                                 "*.aifc *.aiff *.amb *.amr *.aob *.ape *.au *.awb *.caf *.flac *.it "
+                                                                                                 "*.kar *.m4a *.m4b *.m4p *.m5p *.mid *.mka *.mlp *.mod *.mpa *.mp1 *.mp2 "
+                                                                                                 "*.mp3 *.mpc *.mpga *.mus *.oga *.ogg *.oma *.opus *.qcp *.ra *.rmi *.s3m "
+                                                                                                 "*.sid *.spx *.tak *.thd *.tta *.voc *.vqf *.w64 *.wav *.wma *.wv *.xa *.xm);;"
+                                                                                                 "Усі файли (*.*)");
+    AVFormatContext* check_format = NULL;
+    ui->plainTextEdit->setPlainText(QString::fromStdString(reformat_file_name(file_name)));
+    if(avformat_open_input(&check_format, reformat_file_name(file_name).c_str(), NULL, NULL) < 0){
+        //Перевірка на те, чи можна відкрити файл (якщо хтось захоче відкрити НЕмедіафайл)
+        QMessageBox::warning(this, "Помилка", "Не вдалось відкрити файл. Перевірте розширення файлу.");
+        return;
+    }
+    //якщо є медіафайлом, відкриваємо pFormatCtx
+    m = this;
+    QMessageBox::critical(m, "Капець", "Я поки не рішив як інтегрувати то тому насолоджуйтесь дискрешиєю");
+}
 
-//void MainWindow::on_action_open_f_triggered()
-//{
-//    QString file_name = QFileDialog::getOpenFileName(this, "Відкрити файл", QDir::currentPath(), "Медіафайли (*.3g2 *.3gp *.3gp2 *.3gpp *.669 *.a52 *.aac *.ac3 "
-//                                                                                                 "*.adt *.adt *.adts *.aif *.aifc *.aiff *.amb *.amr *.amv *.aob "
-//                                                                                                 "*.ape *.asf *.au *.avi *.awb *.bik *.bin *.caf *.crf *.dav *.divx "
-//                                                                                                 "*.drc *.dv *.dvr-ms *.evo *.f4v *.flac *.flv *.gvi *.gxf *.iso "
-//                                                                                                 "*.it *.kar *.m1v *.m2t *.m2ts *.m2v *.m4a *.m4b *.m4p *.m4v "
-//                                                                                                 "*.m5p *.mid *.mka *.mkv *.mlp *.mod *.mov *.mp1 *.mp2 "
-//                                                                                                 "*.mp2v *.mp3 *.mp4 *.mp4v *.mpa *.mpc *.mpe *.mpeg *.mpeg1 *.mpeg2 "
-//                                                                                                 "*.mpeg4 *.mpg *.mpga *.mpv2 *.mts *.mtv *.mus *.mxf *.mxg *.nsv "
-//                                                                                                 "*.nuv *.oga *.ogg *.ogm *.ogv *.ogx *.oma *.opus *.ps *.qcp "
-//                                                                                                 "*.ra *.rec *.rm *.rmi *.rmvb *.rpl *.s3m *.sid *.spx *.tak *.thd *.thp *.tod *.tp "
-//                                                                                                 "*.ts *.tta *.tts *.txd *.vob *.voc *.vqf *.vro *.w64 *.wav *.webm *.wm *.wma *.wmv "
-//                                                                                                 "*.wv *.xa *.xm) ;;"
-//                                                                                                 "Відеофайли (*.3g2 *.3gp *.3gp2 *.3gpp *.amv *.asf *.avi *.bik *.bin "
-//                                                                                                 "*.crf *.dav *.divx *.drc *.dv *.dvr-ms *.evo *.f4v *.flv *.gvi *.gxf "
-//                                                                                                 "*.iso *.m1v *.m2v *.m2t *.m2ts *.m4v *.mkv *.mov *.mp2 *.mp2v *.mp4 "
-//                                                                                                 "*.mp4v *.mpe *.mpeg *.mpeg1 *.mpeg2 *.mpeg4 *.mpg *.mpv2 *.mts *.mtv "
-//                                                                                                 "*.mxf *.mxg *.nsv *.nuv *.ogg *.ogm *.ogv *.ogx *.ps *.rec *.rm *.rmvb "
-//                                                                                                 "*.rpl *.thp *.tod *.tp *.ts *.tts *.txd *.vob *.vro *.webm *.wm *.wmv);;"
-//                                                                                                 "Аудіофайли (*.3ga *.669 *.a52 *.aac *.ac3 *.adt *.adt *.adts *.aif "
-//                                                                                                 "*.aifc *.aiff *.amb *.amr *.aob *.ape *.au *.awb *.caf *.flac *.it "
-//                                                                                                 "*.kar *.m4a *.m4b *.m4p *.m5p *.mid *.mka *.mlp *.mod *.mpa *.mp1 *.mp2 "
-//                                                                                                 "*.mp3 *.mpc *.mpga *.mus *.oga *.ogg *.oma *.opus *.qcp *.ra *.rmi *.s3m "
-//                                                                                                 "*.sid *.spx *.tak *.thd *.tta *.voc *.vqf *.w64 *.wav *.wma *.wv *.xa *.xm);;"
-//                                                                                                 "Усі файли (*.*)");
-//    AVFormatContext* check_format;
-//    if(avformat_open_input(&check_format, file_name.toStdString().c_str(), NULL, NULL) != 0){
-//        //Перевірка на те, чи можна відкрити файл (якщо хтось захоче відкрити НЕмедіафайл)
-//        QMessageBox::warning(this, "Помилка", "Не вдалось відкрити файл. Перевірте розширення файлу.");
-//        return;
-//    }
-//    delete is;
-//    is = new VideoState;
-//    //якщо є медіафайлом, відкриваємо pFormatCtx
-//    is->pFormatCtx = check_format;
-//    is->filename = file_name.toStdString();
-//    init_and_events();
-//}
-
-//void MainWindow::on_action_exit_triggered()
-//{
-//    QApplication::exit();
-//}
+void MainWindow::on_action_exit_triggered()
+{
+    QApplication::exit();
+}

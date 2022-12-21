@@ -16,10 +16,10 @@ CXX           = g++
 DEFINES       = -DUNICODE -D_UNICODE -DWIN32 -DMINGW_HAS_SECURE_API=1 -DQT_QML_DEBUG -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB -DQT_NEEDS_QMAIN
 CFLAGS        = -fno-keep-inline-dllexport -g -Wall -Wextra -Wextra $(DEFINES)
 CXXFLAGS      = -fno-keep-inline-dllexport -g -std=gnu++1z -Wall -Wextra -Wextra -fexceptions -mthreads $(DEFINES)
-INCPATH       = -I..\Lab3Pysarenkov -I. -I..\Lab3Pysarenkov\libavcodec -I..\..\..\Qt\5.15.2\mingw81_32\include -I..\..\..\Qt\5.15.2\mingw81_32\include -I..\..\..\Qt\5.15.2\mingw81_32\include -I..\..\..\Qt\5.15.2\mingw81_32\include -I..\..\..\Qt\5.15.2\mingw81_32\include -I..\..\..\Qt\5.15.2\mingw81_32\include -I..\..\..\Qt\5.15.2\mingw81_32\include -I..\..\..\Qt\5.15.2\mingw81_32\include\QtWidgets -I..\..\..\Qt\5.15.2\mingw81_32\include\QtGui -I..\..\..\Qt\5.15.2\mingw81_32\include\QtANGLE -I..\..\..\Qt\5.15.2\mingw81_32\include\QtCore -Idebug -I. -I..\..\..\Qt\5.15.2\mingw81_32\mkspecs\win32-g++ 
+INCPATH       = -I..\Lab3Pysarenkov -I. -I..\Lab3Pysarenkov\libavcodec -I..\..\..\Qt\5.15.2\mingw81_32\include -I..\..\..\Qt\5.15.2\mingw81_32\include -I..\..\..\Qt\5.15.2\mingw81_32\include -I..\..\..\Qt\5.15.2\mingw81_32\include -I..\..\..\Qt\5.15.2\mingw81_32\include -I..\..\..\Qt\5.15.2\mingw81_32\include -I..\..\..\Qt\5.15.2\mingw81_32\include -I..\..\..\Qt\5.15.2\mingw81_32\include -I..\..\..\Qt\5.15.2\mingw81_32\include\QtWidgets -I..\..\..\Qt\5.15.2\mingw81_32\include\QtGui -I..\..\..\Qt\5.15.2\mingw81_32\include\QtANGLE -I..\..\..\Qt\5.15.2\mingw81_32\include\QtCore -Idebug -I. -I..\..\..\Qt\5.15.2\mingw81_32\mkspecs\win32-g++ 
 LINKER      =        g++
 LFLAGS        =        -Wl,-subsystem,windows -mthreads
-LIBS        =        -LE:\Qt\5.15.2\mingw81_32\lib -lavcodec -lavformat -lswscale -lSDL2 -lswresample -lavutil E:\Qt\5.15.2\mingw81_32\lib\libQt5Widgets.a E:\Qt\5.15.2\mingw81_32\lib\libQt5Gui.a E:\Qt\5.15.2\mingw81_32\lib\libQt5Core.a  -lmingw32 E:\Qt\5.15.2\mingw81_32\lib\libqtmain.a -LC:\openssl\lib -LC:\Utils\my_sql\mysql-5.7.25-win32\lib -LC:\Utils\postgresql\pgsql\lib -lshell32 
+LIBS        =        -LE:\Qt\5.15.2\mingw81_32\lib -lavcodec -lavformat -lswscale -lSDL2 -lswresample -lavutil -lavdevice E:\Qt\5.15.2\mingw81_32\lib\libQt5Widgets.a E:\Qt\5.15.2\mingw81_32\lib\libQt5Gui.a E:\Qt\5.15.2\mingw81_32\lib\libQt5Core.a  -lmingw32 E:\Qt\5.15.2\mingw81_32\lib\libqtmain.a -LC:\openssl\lib -LC:\Utils\my_sql\mysql-5.7.25-win32\lib -LC:\Utils\postgresql\pgsql\lib -lshell32 
 QMAKE         = E:\Qt\5.15.2\mingw81_32\bin\qmake.exe
 DEL_FILE      = del
 CHK_DIR_EXISTS= if not exist
@@ -226,36 +226,15 @@ debug/moc_mainwindow.cpp: ../Lab3Pysarenkov/mainwindow.h \
 		../../../Qt/5.15.2/mingw81_32/include/QtWidgets/qtabwidget.h \
 		../../../Qt/5.15.2/mingw81_32/include/QtGui/qicon.h \
 		../Lab3Pysarenkov/structs_enums.h \
-		../Lab3Pysarenkov/libavutil/avstring.h \
-		../Lab3Pysarenkov/libavutil/attributes.h \
-		../Lab3Pysarenkov/libavutil/version.h \
-		../Lab3Pysarenkov/libavutil/macros.h \
-		../Lab3Pysarenkov/libavutil/channel_layout.h \
-		../Lab3Pysarenkov/libavutil/eval.h \
-		../Lab3Pysarenkov/libavutil/avutil.h \
-		../Lab3Pysarenkov/libavutil/common.h \
-		../../../Qt/5.15.2/mingw81_32/include/libavutil/avconfig.h \
-		../Lab3Pysarenkov/config.h \
-		../Lab3Pysarenkov/libavutil/mem.h \
-		../Lab3Pysarenkov/libavutil/error.h \
-		../Lab3Pysarenkov/libavutil/rational.h \
-		../Lab3Pysarenkov/libavutil/mathematics.h \
-		../Lab3Pysarenkov/libavutil/intfloat.h \
-		../Lab3Pysarenkov/libavutil/log.h \
-		../Lab3Pysarenkov/libavutil/pixfmt.h \
-		../Lab3Pysarenkov/libavutil/pixdesc.h \
-		../Lab3Pysarenkov/libavutil/dict.h \
-		../../../Qt/5.15.2/mingw81_32/include/libavutil/fifo.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavutil/avstring.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/attributes.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/version.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/macros.h \
-		../Lab3Pysarenkov/libavutil/samplefmt.h \
-		../Lab3Pysarenkov/libavutil/bprint.h \
-		../Lab3Pysarenkov/libavformat/avformat.h \
-		../../../Qt/5.15.2/mingw81_32/include/libavcodec/avcodec.h \
-		../../../Qt/5.15.2/mingw81_32/include/libavutil/samplefmt.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavutil/eval.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/avutil.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/common.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavutil/avconfig.h \
+		../Lab3Pysarenkov/config.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/intmath.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/arm/intmath.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/riscv/intmath.h \
@@ -279,9 +258,19 @@ debug/moc_mainwindow.cpp: ../Lab3Pysarenkov/mainwindow.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/mathematics.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/rational.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/mips/libm_mips.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavutil/pixdesc.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavutil/imgutils.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavutil/dict.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavutil/fifo.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavutil/parseutils.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavutil/samplefmt.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavutil/avassert.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavutil/time.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavutil/bprint.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavformat/avformat.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavcodec/avcodec.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/buffer.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/channel_layout.h \
-		../../../Qt/5.15.2/mingw81_32/include/libavutil/dict.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/frame.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/hwcontext.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavcodec/bsf.h \
@@ -291,18 +280,15 @@ debug/moc_mainwindow.cpp: ../Lab3Pysarenkov/mainwindow.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavcodec/version.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavcodec/codec.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavcodec/codec_desc.h \
-		../Lab3Pysarenkov/libavformat/avio.h \
-		../../../Qt/5.15.2/mingw81_32/include/libavformat/version.h \
-		../Lab3Pysarenkov/libavdevice/avdevice.h \
-		../Lab3Pysarenkov/libavdevice/version.h \
-		../../../Qt/5.15.2/mingw81_32/include/libavutil/opt.h \
-		../../../Qt/5.15.2/mingw81_32/include/libavformat/avformat.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavformat/avio.h \
-		../Lab3Pysarenkov/libswscale/swscale.h \
-		../Lab3Pysarenkov/libswscale/version.h \
-		../Lab3Pysarenkov/libavutil/opt.h \
-		../Lab3Pysarenkov/libavcodec/avfft.h \
-		../Lab3Pysarenkov/libswresample/swresample.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavformat/version.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavdevice/avdevice.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavdevice/version.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavutil/opt.h \
+		../../../Qt/5.15.2/mingw81_32/include/libswscale/swscale.h \
+		../../../Qt/5.15.2/mingw81_32/include/libswscale/version.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavcodec/avfft.h \
+		../../../Qt/5.15.2/mingw81_32/include/libswresample/swresample.h \
 		../../../Qt/5.15.2/mingw81_32/include/libswresample/version.h \
 		../../../Qt/5.15.2/mingw81_32/include/SDL2/SDL_thread.h \
 		../../../Qt/5.15.2/mingw81_32/include/SDL2/SDL_stdinc.h \
@@ -355,18 +341,9 @@ debug/moc_mainwindow.cpp: ../Lab3Pysarenkov/mainwindow.h \
 		../../../Qt/5.15.2/mingw81_32/include/SDL2/SDL_locale.h \
 		../../../Qt/5.15.2/mingw81_32/include/SDL2/SDL_misc.h \
 		../Lab3Pysarenkov/macro_defs.h \
-		../../../Qt/5.15.2/mingw81_32/include/libavutil/avstring.h \
-		../../../Qt/5.15.2/mingw81_32/include/libavutil/eval.h \
-		../../../Qt/5.15.2/mingw81_32/include/libavutil/pixdesc.h \
-		../../../Qt/5.15.2/mingw81_32/include/libavdevice/avdevice.h \
-		../../../Qt/5.15.2/mingw81_32/include/libavdevice/version.h \
-		../../../Qt/5.15.2/mingw81_32/include/libswscale/swscale.h \
-		../../../Qt/5.15.2/mingw81_32/include/libswscale/version.h \
-		../../../Qt/5.15.2/mingw81_32/include/libavcodec/avfft.h \
-		../../../Qt/5.15.2/mingw81_32/include/libswresample/swresample.h \
 		debug/moc_predefs.h \
 		../../../Qt/5.15.2/mingw81_32/bin/moc.exe
-	E:\Qt\5.15.2\mingw81_32\bin\moc.exe $(DEFINES) --include E:/Univ/prog/build-Lab3Pysarenkov-Desktop_Qt_5_15_2_MinGW_32_bit-Debug/debug/moc_predefs.h -IE:/Qt/5.15.2/mingw81_32/mkspecs/win32-g++ -IE:/Univ/prog/Lab3Pysarenkov -IE:/Univ/prog/Lab3Pysarenkov/libavcodec -IE:/Qt/5.15.2/mingw81_32/include -IE:/Qt/5.15.2/mingw81_32/include -IE:/Qt/5.15.2/mingw81_32/include -IE:/Qt/5.15.2/mingw81_32/include -IE:/Qt/5.15.2/mingw81_32/include -IE:/Qt/5.15.2/mingw81_32/include -IE:/Qt/5.15.2/mingw81_32/include -IE:/Qt/5.15.2/mingw81_32/include/QtWidgets -IE:/Qt/5.15.2/mingw81_32/include/QtGui -IE:/Qt/5.15.2/mingw81_32/include/QtANGLE -IE:/Qt/5.15.2/mingw81_32/include/QtCore -I. -IE:/Qt/Tools/mingw810_32/lib/gcc/i686-w64-mingw32/8.1.0/include/c++ -IE:/Qt/Tools/mingw810_32/lib/gcc/i686-w64-mingw32/8.1.0/include/c++/i686-w64-mingw32 -IE:/Qt/Tools/mingw810_32/lib/gcc/i686-w64-mingw32/8.1.0/include/c++/backward -IE:/Qt/Tools/mingw810_32/lib/gcc/i686-w64-mingw32/8.1.0/include -IE:/Qt/Tools/mingw810_32/lib/gcc/i686-w64-mingw32/8.1.0/include-fixed -IE:/Qt/Tools/mingw810_32/i686-w64-mingw32/include ..\Lab3Pysarenkov\mainwindow.h -o debug\moc_mainwindow.cpp
+	E:\Qt\5.15.2\mingw81_32\bin\moc.exe $(DEFINES) --include E:/Univ/prog/build-Lab3Pysarenkov-Desktop_Qt_5_15_2_MinGW_32_bit-Debug/debug/moc_predefs.h -IE:/Qt/5.15.2/mingw81_32/mkspecs/win32-g++ -IE:/Univ/prog/Lab3Pysarenkov -IE:/Univ/prog/Lab3Pysarenkov/libavcodec -IE:/Qt/5.15.2/mingw81_32/include -IE:/Qt/5.15.2/mingw81_32/include -IE:/Qt/5.15.2/mingw81_32/include -IE:/Qt/5.15.2/mingw81_32/include -IE:/Qt/5.15.2/mingw81_32/include -IE:/Qt/5.15.2/mingw81_32/include -IE:/Qt/5.15.2/mingw81_32/include -IE:/Qt/5.15.2/mingw81_32/include -IE:/Qt/5.15.2/mingw81_32/include/QtWidgets -IE:/Qt/5.15.2/mingw81_32/include/QtGui -IE:/Qt/5.15.2/mingw81_32/include/QtANGLE -IE:/Qt/5.15.2/mingw81_32/include/QtCore -I. -IE:/Qt/Tools/mingw810_32/lib/gcc/i686-w64-mingw32/8.1.0/include/c++ -IE:/Qt/Tools/mingw810_32/lib/gcc/i686-w64-mingw32/8.1.0/include/c++/i686-w64-mingw32 -IE:/Qt/Tools/mingw810_32/lib/gcc/i686-w64-mingw32/8.1.0/include/c++/backward -IE:/Qt/Tools/mingw810_32/lib/gcc/i686-w64-mingw32/8.1.0/include -IE:/Qt/Tools/mingw810_32/lib/gcc/i686-w64-mingw32/8.1.0/include-fixed -IE:/Qt/Tools/mingw810_32/i686-w64-mingw32/include ..\Lab3Pysarenkov\mainwindow.h -o debug\moc_mainwindow.cpp
 
 compiler_moc_objc_header_make_all:
 compiler_moc_objc_header_clean:
@@ -499,36 +476,15 @@ debug/main.o: ../Lab3Pysarenkov/main.cpp ../Lab3Pysarenkov/mainwindow.h \
 		../../../Qt/5.15.2/mingw81_32/include/QtWidgets/qtabwidget.h \
 		../../../Qt/5.15.2/mingw81_32/include/QtGui/qicon.h \
 		../Lab3Pysarenkov/structs_enums.h \
-		../Lab3Pysarenkov/libavutil/avstring.h \
-		../Lab3Pysarenkov/libavutil/attributes.h \
-		../Lab3Pysarenkov/libavutil/version.h \
-		../Lab3Pysarenkov/libavutil/macros.h \
-		../Lab3Pysarenkov/libavutil/channel_layout.h \
-		../Lab3Pysarenkov/libavutil/eval.h \
-		../Lab3Pysarenkov/libavutil/avutil.h \
-		../Lab3Pysarenkov/libavutil/common.h \
-		../../../Qt/5.15.2/mingw81_32/include/libavutil/avconfig.h \
-		../Lab3Pysarenkov/config.h \
-		../Lab3Pysarenkov/libavutil/mem.h \
-		../Lab3Pysarenkov/libavutil/error.h \
-		../Lab3Pysarenkov/libavutil/rational.h \
-		../Lab3Pysarenkov/libavutil/mathematics.h \
-		../Lab3Pysarenkov/libavutil/intfloat.h \
-		../Lab3Pysarenkov/libavutil/log.h \
-		../Lab3Pysarenkov/libavutil/pixfmt.h \
-		../Lab3Pysarenkov/libavutil/pixdesc.h \
-		../Lab3Pysarenkov/libavutil/dict.h \
-		../../../Qt/5.15.2/mingw81_32/include/libavutil/fifo.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavutil/avstring.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/attributes.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/version.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/macros.h \
-		../Lab3Pysarenkov/libavutil/samplefmt.h \
-		../Lab3Pysarenkov/libavutil/bprint.h \
-		../Lab3Pysarenkov/libavformat/avformat.h \
-		../../../Qt/5.15.2/mingw81_32/include/libavcodec/avcodec.h \
-		../../../Qt/5.15.2/mingw81_32/include/libavutil/samplefmt.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavutil/eval.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/avutil.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/common.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavutil/avconfig.h \
+		../Lab3Pysarenkov/config.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/intmath.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/arm/intmath.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/riscv/intmath.h \
@@ -552,9 +508,19 @@ debug/main.o: ../Lab3Pysarenkov/main.cpp ../Lab3Pysarenkov/mainwindow.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/mathematics.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/rational.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/mips/libm_mips.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavutil/pixdesc.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavutil/imgutils.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavutil/dict.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavutil/fifo.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavutil/parseutils.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavutil/samplefmt.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavutil/avassert.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavutil/time.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavutil/bprint.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavformat/avformat.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavcodec/avcodec.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/buffer.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/channel_layout.h \
-		../../../Qt/5.15.2/mingw81_32/include/libavutil/dict.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/frame.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/hwcontext.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavcodec/bsf.h \
@@ -564,18 +530,15 @@ debug/main.o: ../Lab3Pysarenkov/main.cpp ../Lab3Pysarenkov/mainwindow.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavcodec/version.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavcodec/codec.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavcodec/codec_desc.h \
-		../Lab3Pysarenkov/libavformat/avio.h \
-		../../../Qt/5.15.2/mingw81_32/include/libavformat/version.h \
-		../Lab3Pysarenkov/libavdevice/avdevice.h \
-		../Lab3Pysarenkov/libavdevice/version.h \
-		../../../Qt/5.15.2/mingw81_32/include/libavutil/opt.h \
-		../../../Qt/5.15.2/mingw81_32/include/libavformat/avformat.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavformat/avio.h \
-		../Lab3Pysarenkov/libswscale/swscale.h \
-		../Lab3Pysarenkov/libswscale/version.h \
-		../Lab3Pysarenkov/libavutil/opt.h \
-		../Lab3Pysarenkov/libavcodec/avfft.h \
-		../Lab3Pysarenkov/libswresample/swresample.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavformat/version.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavdevice/avdevice.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavdevice/version.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavutil/opt.h \
+		../../../Qt/5.15.2/mingw81_32/include/libswscale/swscale.h \
+		../../../Qt/5.15.2/mingw81_32/include/libswscale/version.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavcodec/avfft.h \
+		../../../Qt/5.15.2/mingw81_32/include/libswresample/swresample.h \
 		../../../Qt/5.15.2/mingw81_32/include/libswresample/version.h \
 		../../../Qt/5.15.2/mingw81_32/include/SDL2/SDL_thread.h \
 		../../../Qt/5.15.2/mingw81_32/include/SDL2/SDL_stdinc.h \
@@ -628,15 +591,6 @@ debug/main.o: ../Lab3Pysarenkov/main.cpp ../Lab3Pysarenkov/mainwindow.h \
 		../../../Qt/5.15.2/mingw81_32/include/SDL2/SDL_locale.h \
 		../../../Qt/5.15.2/mingw81_32/include/SDL2/SDL_misc.h \
 		../Lab3Pysarenkov/macro_defs.h \
-		../../../Qt/5.15.2/mingw81_32/include/libavutil/avstring.h \
-		../../../Qt/5.15.2/mingw81_32/include/libavutil/eval.h \
-		../../../Qt/5.15.2/mingw81_32/include/libavutil/pixdesc.h \
-		../../../Qt/5.15.2/mingw81_32/include/libavdevice/avdevice.h \
-		../../../Qt/5.15.2/mingw81_32/include/libavdevice/version.h \
-		../../../Qt/5.15.2/mingw81_32/include/libswscale/swscale.h \
-		../../../Qt/5.15.2/mingw81_32/include/libswscale/version.h \
-		../../../Qt/5.15.2/mingw81_32/include/libavcodec/avfft.h \
-		../../../Qt/5.15.2/mingw81_32/include/libswresample/swresample.h \
 		../../../Qt/5.15.2/mingw81_32/include/QtWidgets/QApplication \
 		../../../Qt/5.15.2/mingw81_32/include/QtWidgets/qapplication.h \
 		../../../Qt/5.15.2/mingw81_32/include/QtCore/qcoreapplication.h \
@@ -646,7 +600,8 @@ debug/main.o: ../Lab3Pysarenkov/main.cpp ../Lab3Pysarenkov/mainwindow.h \
 		../../../Qt/5.15.2/mingw81_32/include/QtGui/qinputmethod.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o debug\main.o ..\Lab3Pysarenkov\main.cpp
 
-debug/mainwindow.o: ../Lab3Pysarenkov/mainwindow.cpp ../Lab3Pysarenkov/mainwindow.h \
+debug/mainwindow.o: ../Lab3Pysarenkov/mainwindow.cpp ../Lab3Pysarenkov/config.h \
+		../Lab3Pysarenkov/mainwindow.h \
 		../../../Qt/5.15.2/mingw81_32/include/QtWidgets/QMainWindow \
 		../../../Qt/5.15.2/mingw81_32/include/QtWidgets/qmainwindow.h \
 		../../../Qt/5.15.2/mingw81_32/include/QtWidgets/qtwidgetsglobal.h \
@@ -754,36 +709,14 @@ debug/mainwindow.o: ../Lab3Pysarenkov/mainwindow.cpp ../Lab3Pysarenkov/mainwindo
 		../../../Qt/5.15.2/mingw81_32/include/QtWidgets/qtabwidget.h \
 		../../../Qt/5.15.2/mingw81_32/include/QtGui/qicon.h \
 		../Lab3Pysarenkov/structs_enums.h \
-		../Lab3Pysarenkov/libavutil/avstring.h \
-		../Lab3Pysarenkov/libavutil/attributes.h \
-		../Lab3Pysarenkov/libavutil/version.h \
-		../Lab3Pysarenkov/libavutil/macros.h \
-		../Lab3Pysarenkov/libavutil/channel_layout.h \
-		../Lab3Pysarenkov/libavutil/eval.h \
-		../Lab3Pysarenkov/libavutil/avutil.h \
-		../Lab3Pysarenkov/libavutil/common.h \
-		../../../Qt/5.15.2/mingw81_32/include/libavutil/avconfig.h \
-		../Lab3Pysarenkov/config.h \
-		../Lab3Pysarenkov/libavutil/mem.h \
-		../Lab3Pysarenkov/libavutil/error.h \
-		../Lab3Pysarenkov/libavutil/rational.h \
-		../Lab3Pysarenkov/libavutil/mathematics.h \
-		../Lab3Pysarenkov/libavutil/intfloat.h \
-		../Lab3Pysarenkov/libavutil/log.h \
-		../Lab3Pysarenkov/libavutil/pixfmt.h \
-		../Lab3Pysarenkov/libavutil/pixdesc.h \
-		../Lab3Pysarenkov/libavutil/dict.h \
-		../../../Qt/5.15.2/mingw81_32/include/libavutil/fifo.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavutil/avstring.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/attributes.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/version.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/macros.h \
-		../Lab3Pysarenkov/libavutil/samplefmt.h \
-		../Lab3Pysarenkov/libavutil/bprint.h \
-		../Lab3Pysarenkov/libavformat/avformat.h \
-		../../../Qt/5.15.2/mingw81_32/include/libavcodec/avcodec.h \
-		../../../Qt/5.15.2/mingw81_32/include/libavutil/samplefmt.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavutil/eval.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/avutil.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/common.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavutil/avconfig.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/intmath.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/arm/intmath.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/riscv/intmath.h \
@@ -807,9 +740,19 @@ debug/mainwindow.o: ../Lab3Pysarenkov/mainwindow.cpp ../Lab3Pysarenkov/mainwindo
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/mathematics.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/rational.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/mips/libm_mips.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavutil/pixdesc.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavutil/imgutils.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavutil/dict.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavutil/fifo.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavutil/parseutils.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavutil/samplefmt.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavutil/avassert.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavutil/time.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavutil/bprint.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavformat/avformat.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavcodec/avcodec.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/buffer.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/channel_layout.h \
-		../../../Qt/5.15.2/mingw81_32/include/libavutil/dict.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/frame.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavutil/hwcontext.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavcodec/bsf.h \
@@ -819,18 +762,15 @@ debug/mainwindow.o: ../Lab3Pysarenkov/mainwindow.cpp ../Lab3Pysarenkov/mainwindo
 		../../../Qt/5.15.2/mingw81_32/include/libavcodec/version.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavcodec/codec.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavcodec/codec_desc.h \
-		../Lab3Pysarenkov/libavformat/avio.h \
-		../../../Qt/5.15.2/mingw81_32/include/libavformat/version.h \
-		../Lab3Pysarenkov/libavdevice/avdevice.h \
-		../Lab3Pysarenkov/libavdevice/version.h \
-		../../../Qt/5.15.2/mingw81_32/include/libavutil/opt.h \
-		../../../Qt/5.15.2/mingw81_32/include/libavformat/avformat.h \
 		../../../Qt/5.15.2/mingw81_32/include/libavformat/avio.h \
-		../Lab3Pysarenkov/libswscale/swscale.h \
-		../Lab3Pysarenkov/libswscale/version.h \
-		../Lab3Pysarenkov/libavutil/opt.h \
-		../Lab3Pysarenkov/libavcodec/avfft.h \
-		../Lab3Pysarenkov/libswresample/swresample.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavformat/version.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavdevice/avdevice.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavdevice/version.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavutil/opt.h \
+		../../../Qt/5.15.2/mingw81_32/include/libswscale/swscale.h \
+		../../../Qt/5.15.2/mingw81_32/include/libswscale/version.h \
+		../../../Qt/5.15.2/mingw81_32/include/libavcodec/avfft.h \
+		../../../Qt/5.15.2/mingw81_32/include/libswresample/swresample.h \
 		../../../Qt/5.15.2/mingw81_32/include/libswresample/version.h \
 		../../../Qt/5.15.2/mingw81_32/include/SDL2/SDL_thread.h \
 		../../../Qt/5.15.2/mingw81_32/include/SDL2/SDL_stdinc.h \
@@ -883,15 +823,6 @@ debug/mainwindow.o: ../Lab3Pysarenkov/mainwindow.cpp ../Lab3Pysarenkov/mainwindo
 		../../../Qt/5.15.2/mingw81_32/include/SDL2/SDL_locale.h \
 		../../../Qt/5.15.2/mingw81_32/include/SDL2/SDL_misc.h \
 		../Lab3Pysarenkov/macro_defs.h \
-		../../../Qt/5.15.2/mingw81_32/include/libavutil/avstring.h \
-		../../../Qt/5.15.2/mingw81_32/include/libavutil/eval.h \
-		../../../Qt/5.15.2/mingw81_32/include/libavutil/pixdesc.h \
-		../../../Qt/5.15.2/mingw81_32/include/libavdevice/avdevice.h \
-		../../../Qt/5.15.2/mingw81_32/include/libavdevice/version.h \
-		../../../Qt/5.15.2/mingw81_32/include/libswscale/swscale.h \
-		../../../Qt/5.15.2/mingw81_32/include/libswscale/version.h \
-		../../../Qt/5.15.2/mingw81_32/include/libavcodec/avfft.h \
-		../../../Qt/5.15.2/mingw81_32/include/libswresample/swresample.h \
 		ui_mainwindow.h \
 		../../../Qt/5.15.2/mingw81_32/include/QtCore/QVariant \
 		../../../Qt/5.15.2/mingw81_32/include/QtWidgets/QAction \
@@ -917,8 +848,7 @@ debug/mainwindow.o: ../Lab3Pysarenkov/mainwindow.cpp ../Lab3Pysarenkov/mainwindo
 		../../../Qt/5.15.2/mingw81_32/include/QtCore/qfileinfo.h \
 		../../../Qt/5.15.2/mingw81_32/include/QtWidgets/qdialog.h \
 		../../../Qt/5.15.2/mingw81_32/include/QtWidgets/QMessageBox \
-		../../../Qt/5.15.2/mingw81_32/include/QtWidgets/qmessagebox.h \
-		../Lab3Pysarenkov/opt_common.h
+		../../../Qt/5.15.2/mingw81_32/include/QtWidgets/qmessagebox.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o debug\mainwindow.o ..\Lab3Pysarenkov\mainwindow.cpp
 
 debug/qrc_img.o: debug/qrc_img.cpp 

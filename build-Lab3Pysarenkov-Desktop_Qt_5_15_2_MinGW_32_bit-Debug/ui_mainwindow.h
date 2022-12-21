@@ -15,6 +15,7 @@
 #include <QtWidgets/QMainWindow>
 #include <QtWidgets/QMenu>
 #include <QtWidgets/QMenuBar>
+#include <QtWidgets/QPlainTextEdit>
 #include <QtWidgets/QStatusBar>
 #include <QtWidgets/QWidget>
 
@@ -27,6 +28,7 @@ public:
     QAction *action_2;
     QAction *action_exit;
     QWidget *centralwidget;
+    QPlainTextEdit *plainTextEdit;
     QMenuBar *menubar;
     QMenu *menu;
     QStatusBar *statusbar;
@@ -47,10 +49,13 @@ public:
         action_exit->setIcon(icon);
         centralwidget = new QWidget(MainWindow);
         centralwidget->setObjectName(QString::fromUtf8("centralwidget"));
+        plainTextEdit = new QPlainTextEdit(centralwidget);
+        plainTextEdit->setObjectName(QString::fromUtf8("plainTextEdit"));
+        plainTextEdit->setGeometry(QRect(160, 400, 551, 85));
         MainWindow->setCentralWidget(centralwidget);
         menubar = new QMenuBar(MainWindow);
         menubar->setObjectName(QString::fromUtf8("menubar"));
-        menubar->setGeometry(QRect(0, 0, 800, 21));
+        menubar->setGeometry(QRect(0, 0, 800, 31));
         menu = new QMenu(menubar);
         menu->setObjectName(QString::fromUtf8("menu"));
         MainWindow->setMenuBar(menubar);
