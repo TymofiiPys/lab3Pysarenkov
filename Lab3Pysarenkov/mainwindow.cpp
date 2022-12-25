@@ -13,6 +13,8 @@
 #include "ui_mainwindow.h"
 #include <QFileDialog>
 #include <QMessageBox>
+#include <QCloseEvent>
+#include <QTime>
 
 #include "macro_defs.h"
 extern "C"
@@ -113,19 +115,41 @@ static SDL_RendererInfo renderer_info;
 //аудіодевайс, куди передається аудіо
 static SDL_AudioDeviceID audio_dev;
 
+VideoState* global_v; //для елементів інтерфейсу
+
+QSlider* slider;
+bool no_move_slider;
+QLabel* lcur;
+QLabel* ldur;
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
     connect(this, SIGNAL(SendMessage(int,QString)), this, SLOT(ShowMessage(int,QString)));
+#if CONFIG_AVDEVICE
+    avdevice_register_all();
+#endif
+    avformat_network_init();
+    
+//    int flags = SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER;
+//    //задаємо флеги для запуску сдл
+//    if (!SDL_getenv("SDL_AUDIO_ALSA_SET_BUFFER_SIZE"))
+//        SDL_setenv("SDL_AUDIO_ALSA_SET_BUFFER_SIZE","1", 1);
+//    if (SDL_Init (flags)) {
+////        av_log(NULL, AV_LOG_FATAL, "Could not initialize SDL - %s\n", SDL_GetError());
+////        av_log(NULL, AV_LOG_FATAL, "(Did you set the DISPLAY variable?)\n");
+//        QMessageBox::critical(m, "Помилка","Не вдалось ініціалізувати SDL");
+//        exit(1);
+//    }
+    
     default_width = 640;    
     default_height = 480;
     screen_width = 0;
     screen_height = 0;
     screen_left = SDL_WINDOWPOS_CENTERED;
     screen_top = SDL_WINDOWPOS_CENTERED;
-//    wanted_stream_spec = {0};
     seek_by_bytes = -1;
     seek_interval = 10;
     startup_volume = 100;
@@ -148,7 +172,13 @@ MainWindow::MainWindow(QWidget *parent)
     filter_nbthreads = 0;
     
     renderer_info = {0};
-
+    global_v = NULL;
+    ::window = ui->widget->window;
+    ::renderer = ui->widget->renderer;
+    slider = ui->horizontalSlider;
+    lcur = ui->label_cur;
+    ldur = ui->label_dur;
+    no_move_slider = false;
 }
 
 MainWindow::~MainWindow()
@@ -209,6 +239,14 @@ static const struct TextureFormatEntry {
 //    return 0;
 //}
 //#endif
+
+static QString get_hh_mm_ss(double time){
+    int ts = time;
+    int hh  = ts/ 3600;
+    int mm  = (ts % 3600) / 60;
+    int ss  = (ts % 60);
+    return QTime(hh, mm, ss).toString("h:mm:ss");
+}
 
 static inline
 int cmp_audio_fmts(enum AVSampleFormat fmt1, int64_t channel_count1,
@@ -1166,7 +1204,7 @@ static void set_default_window_size(int width, int height, AVRational sar)
     default_width  = rect.w;
     default_height = rect.h;
 }
-
+//!
 static int video_open(VideoState *is)
 {
     int w,h;
@@ -1176,8 +1214,8 @@ static int video_open(VideoState *is)
 
     if (!window_title)
         window_title = input_filename;
-    SDL_SetWindowTitle(window, window_title);
-
+//    SDL_SetWindowTitle(window, window_title);
+    
     SDL_SetWindowSize(window, w, h);
     SDL_SetWindowPosition(window, screen_left, screen_top);
     if (is_full_screen)
@@ -1194,7 +1232,6 @@ static void video_display(VideoState *is)
 {
     if (!is->width)
         video_open(is);
-
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
     if (is->audio_st && is->show_mode != SHOW_MODE_VIDEO)
@@ -1547,7 +1584,13 @@ display:
                 av_diff = get_master_clock(is) - get_clock(&is->vidclk);
             else if (is->audio_st)
                 av_diff = get_master_clock(is) - get_clock(&is->audclk);
-
+            if((int)get_master_clock(is) != INT_MIN)
+            {
+                int l = is->ic->duration;
+                if(!no_move_slider)
+                    slider->setSliderPosition(get_master_clock(is) * 10000/(is->ic->duration / 1000000LL));
+                lcur->setText(get_hh_mm_ss(get_master_clock(is)));
+            }
 //            av_bprint_init(&buf, 0, AV_BPRINT_SIZE_AUTOMATIC);
 //            av_bprintf(&buf,
 //                      "%7.2f %s:%7.3f fd=%4d aq=%5dKB vq=%5dKB sq=%5dB f=%"PRId64"/%"PRId64"   \r",
@@ -1956,7 +1999,7 @@ static int audio_thread(void *arg)
     return ret;
 }
 
-static int decoder_start(Decoder *d, int (*fn)(void *)/*std::function<int()>fn*/, const char *thread_name, void* arg)
+static int decoder_start(Decoder *d, int (*fn)(void *), const char *thread_name, void* arg)
 {
     //запуск декодування
     packet_queue_start(d->queue);
@@ -2054,10 +2097,10 @@ static int video_thread(void *arg)
 //                is->frame_last_filter_delay = 0;
 //            tb = av_buffersink_get_time_base(filt_out);
 //#endif
-            duration = (frame_rate.num && frame_rate.den ? av_q2d((AVRational){frame_rate.den, frame_rate.num}) : 0);
-            pts = (frame->pts == AV_NOPTS_VALUE) ? NAN : frame->pts * av_q2d(tb);
-            ret = queue_picture(is, frame, pts, duration, frame->pkt_pos, is->viddec.pkt_serial);
-            av_frame_unref(frame);
+        duration = (frame_rate.num && frame_rate.den ? av_q2d((AVRational){frame_rate.den, frame_rate.num}) : 0);
+        pts = (frame->pts == AV_NOPTS_VALUE) ? NAN : frame->pts * av_q2d(tb);
+        ret = queue_picture(is, frame, pts, duration, frame->pkt_pos, is->viddec.pkt_serial);
+        av_frame_unref(frame);
 //#if CONFIG_AVFILTER
 //            if (is->videoq.serial != is->viddec.pkt_serial)
 //                break;
@@ -2612,6 +2655,10 @@ static int read_thread(void *arg)
 {
     VideoState *is = (VideoState*)arg;
     AVFormatContext *ic = NULL;
+    //метадані
+    AVDictionaryEntry *lang = NULL;
+    AVDictionaryEntry *title = NULL;
+    
     int err, i, ret;
     int st_index[AVMEDIA_TYPE_NB];
     AVPacket *pkt = NULL;
@@ -2619,9 +2666,9 @@ static int read_thread(void *arg)
     int pkt_in_play_range = 0;
     const AVDictionaryEntry *t;
     SDL_mutex *wait_mutex = SDL_CreateMutex();
-    int scan_all_pmts_set = 0;
+//    int scan_all_pmts_set = 0;
     int64_t pkt_ts;
-
+    QString* titles;
     if (!wait_mutex) {
 //        av_log(NULL, AV_LOG_FATAL, "SDL_CreateMutex(): %s\n", SDL_GetError());
         ret = AVERROR(ENOMEM);
@@ -2664,7 +2711,7 @@ static int read_thread(void *arg)
 //        goto fail;
 //    }
     is->ic = ic;
-
+    ldur->setText(get_hh_mm_ss(ic->duration / 1000000LL));
     if (genpts)
         ic->flags |= AVFMT_FLAG_GENPTS;
 
@@ -2738,7 +2785,23 @@ static int read_thread(void *arg)
             st_index[i] = INT_MAX;
         }
     }
-
+    titles = new QString[ic->nb_streams];
+    for (i = 0; i < ic->nb_streams; i++) {
+        AVStream *st = ic->streams[i];
+        lang = av_dict_get(st->metadata, "language", NULL, 0);
+        title = av_dict_get(st->metadata, "title", NULL, 0);
+        if(title != nullptr)
+        {titles[i] = title->value;
+        }
+        else{
+            titles[i] = "Доріжка " + QString::number(i + 1);
+        }
+        if(lang!= nullptr){
+        titles[i] += " [";
+        titles[i] += lang->value;
+        titles[i] += "]";}
+    }
+    m->SetActions(titles, ic->nb_streams);
     //шукаємо потоки для всього всього
     if (!video_disable)
         st_index[AVMEDIA_TYPE_VIDEO] =
@@ -3327,6 +3390,7 @@ static void event_loop(VideoState *cur_stream)
         case SDL_WINDOWEVENT:
             //зміна розміру вікна
             switch (event.window.event) {
+            //!
                 case SDL_WINDOWEVENT_SIZE_CHANGED:
                     screen_width  = cur_stream->width  = event.window.data1;
                     screen_height = cur_stream->height = event.window.data2;
@@ -3349,206 +3413,13 @@ static void event_loop(VideoState *cur_stream)
     }
 }
 
-//static int opt_width(void *optctx, const char *opt, const char *arg)
-//{
-//    screen_width = parse_number_or_die(opt, arg, OPT_INT64, 1, INT_MAX);
-//    return 0;
-//}
 
-//static int opt_height(void *optctx, const char *opt, const char *arg)
-//{
-//    screen_height = parse_number_or_die(opt, arg, OPT_INT64, 1, INT_MAX);
-//    return 0;
-//}
-
-//static int opt_format(void *optctx, const char *opt, const char *arg)
-//{
-//    file_iformat = av_find_input_format(arg);
-//    if (!file_iformat) {
-//        av_log(NULL, AV_LOG_FATAL, "Unknown input format: %s\n", arg);
-//        return AVERROR(EINVAL);
-//    }
-//    return 0;
-//}
-
-//static int opt_sync(void *optctx, const char *opt, const char *arg)
-//{
-//    if (!strcmp(arg, "audio"))
-//        av_sync_type = AV_SYNC_AUDIO_MASTER;
-//    else if (!strcmp(arg, "video"))
-//        av_sync_type = AV_SYNC_VIDEO_MASTER;
-//    else if (!strcmp(arg, "ext"))
-//        av_sync_type = AV_SYNC_EXTERNAL_CLOCK;
-//    else {
-//        av_log(NULL, AV_LOG_ERROR, "Unknown value for %s: %s\n", opt, arg);
-//        exit(1);
-//    }
-//    return 0;
-//}
-
-//static int opt_seek(void *optctx, const char *opt, const char *arg)
-//{
-//    start_time = parse_time_or_die(opt, arg, 1);
-//    return 0;
-//}
-
-//static int opt_duration(void *optctx, const char *opt, const char *arg)
-//{
-//    duration = parse_time_or_die(opt, arg, 1);
-//    return 0;
-//}
-
-//static int opt_show_mode(void *optctx, const char *opt, const char *arg)
-//{
-//    show_mode = !strcmp(arg, "video") ? SHOW_MODE_VIDEO :
-//                !strcmp(arg, "waves") ? SHOW_MODE_WAVES :
-//                !strcmp(arg, "rdft" ) ? SHOW_MODE_RDFT  :
-//                parse_number_or_die(opt, arg, OPT_INT, 0, SHOW_MODE_NB-1);
-//    return 0;
-//}
-
-//static void opt_input_file(void *optctx, const char *filename)
-//{
-//    //парсимо назву файлу
-//    if (input_filename) {
-//        av_log(NULL, AV_LOG_FATAL,
-//               "Argument '%s' provided as input filename, but '%s' was already specified.\n",
-//                filename, input_filename);
-//        exit(1);
-//    }
-//    if (!strcmp(filename, "-"))
-//        filename = "pipe:";
-//    input_filename = filename;
-//}
-
-//static int opt_codec(void *optctx, const char *opt, const char *arg)
-//{
-//   const char *spec = strchr(opt, ':');
-//   if (!spec) {
-//       av_log(NULL, AV_LOG_ERROR,
-//              "No media specifier was specified in '%s' in option '%s'\n",
-//               arg, opt);
-//       return AVERROR(EINVAL);
-//   }
-//   spec++;
-//   switch (spec[0]) {
-//   case 'a' :    audio_codec_name = arg; break;
-//   case 's' : subtitle_codec_name = arg; break;
-//   case 'v' :    video_codec_name = arg; break;
-//   default:
-//       av_log(NULL, AV_LOG_ERROR,
-//              "Invalid media specifier '%s' in option '%s'\n", spec, opt);
-//       return AVERROR(EINVAL);
-//   }
-//   return 0;
-//}
-
-static int dummy;
-
-//static const OptionDef options[] = {
-//    CMDUTILS_COMMON_OPTIONS
-//    { "x", HAS_ARG, { .func_arg = opt_width }, "force displayed width", "width" },
-//    { "y", HAS_ARG, { .func_arg = opt_height }, "force displayed height", "height" },
-//    { "fs", OPT_BOOL, { &is_full_screen }, "force full screen" },
-//    { "an", OPT_BOOL, { &audio_disable }, "disable audio" },
-//    { "vn", OPT_BOOL, { &video_disable }, "disable video" },
-//    { "sn", OPT_BOOL, { &subtitle_disable }, "disable subtitling" },
-//    { "ast", OPT_STRING | HAS_ARG | OPT_EXPERT, { &wanted_stream_spec[AVMEDIA_TYPE_AUDIO] }, "select desired audio stream", "stream_specifier" },
-//    { "vst", OPT_STRING | HAS_ARG | OPT_EXPERT, { &wanted_stream_spec[AVMEDIA_TYPE_VIDEO] }, "select desired video stream", "stream_specifier" },
-//    { "sst", OPT_STRING | HAS_ARG | OPT_EXPERT, { &wanted_stream_spec[AVMEDIA_TYPE_SUBTITLE] }, "select desired subtitle stream", "stream_specifier" },
-//    { "ss", HAS_ARG, { .func_arg = opt_seek }, "seek to a given position in seconds", "pos" },
-//    { "t", HAS_ARG, { .func_arg = opt_duration }, "play  \"duration\" seconds of audio/video", "duration" },
-//    { "bytes", OPT_INT | HAS_ARG, { &seek_by_bytes }, "seek by bytes 0=off 1=on -1=auto", "val" },
-//    { "seek_interval", OPT_FLOAT | HAS_ARG, { &seek_interval }, "set seek interval for left/right keys, in seconds", "seconds" },
-//    { "nodisp", OPT_BOOL, { &display_disable }, "disable graphical display" },
-//    { "noborder", OPT_BOOL, { &borderless }, "borderless window" },
-//    { "alwaysontop", OPT_BOOL, { &alwaysontop }, "window always on top" },
-//    { "volume", OPT_INT | HAS_ARG, { &startup_volume}, "set startup volume 0=min 100=max", "volume" },
-//    { "f", HAS_ARG, { .func_arg = opt_format }, "force format", "fmt" },
-//    { "stats", OPT_BOOL | OPT_EXPERT, { &show_status }, "show status", "" },
-//    { "fast", OPT_BOOL | OPT_EXPERT, { &fast }, "non spec compliant optimizations", "" },
-//    { "genpts", OPT_BOOL | OPT_EXPERT, { &genpts }, "generate pts", "" },
-//    { "drp", OPT_INT | HAS_ARG | OPT_EXPERT, { &decoder_reorder_pts }, "let decoder reorder pts 0=off 1=on -1=auto", ""},
-//    { "lowres", OPT_INT | HAS_ARG | OPT_EXPERT, { &lowres }, "", "" },
-//    { "sync", HAS_ARG | OPT_EXPERT, { .func_arg = opt_sync }, "set audio-video sync. type (type=audio/video/ext)", "type" },
-//    { "autoexit", OPT_BOOL | OPT_EXPERT, { &autoexit }, "exit at the end", "" },
-//    { "exitonkeydown", OPT_BOOL | OPT_EXPERT, { &exit_on_keydown }, "exit on key down", "" },
-//    { "exitonmousedown", OPT_BOOL | OPT_EXPERT, { &exit_on_mousedown }, "exit on mouse down", "" },
-//    { "loop", OPT_INT | HAS_ARG | OPT_EXPERT, { &loop }, "set number of times the playback shall be looped", "loop count" },
-//    { "framedrop", OPT_BOOL | OPT_EXPERT, { &framedrop }, "drop frames when cpu is too slow", "" },
-//    { "infbuf", OPT_BOOL | OPT_EXPERT, { &infinite_buffer }, "don't limit the input buffer size (useful with realtime streams)", "" },
-//    { "window_title", OPT_STRING | HAS_ARG, { &window_title }, "set window title", "window title" },
-//    { "left", OPT_INT | HAS_ARG | OPT_EXPERT, { &screen_left }, "set the x position for the left of the window", "x pos" },
-//    { "top", OPT_INT | HAS_ARG | OPT_EXPERT, { &screen_top }, "set the y position for the top of the window", "y pos" },
-////#if CONFIG_AVFILTER
-////    { "vf", OPT_EXPERT | HAS_ARG, { .func_arg = opt_add_vfilter }, "set video filters", "filter_graph" },
-////    { "af", OPT_STRING | HAS_ARG, { &afilters }, "set audio filters", "filter_graph" },
-////#endif
-//    { "rdftspeed", OPT_INT | HAS_ARG| OPT_AUDIO | OPT_EXPERT, { &rdftspeed }, "rdft speed", "msecs" },
-//    { "showmode", HAS_ARG, { .func_arg = opt_show_mode}, "select show mode (0 = video, 1 = waves, 2 = RDFT)", "mode" },
-//    { "i", OPT_BOOL, { &dummy}, "read specified file", "input_file"},
-//    { "codec", HAS_ARG, { .func_arg = opt_codec}, "force decoder", "decoder_name" },
-//    { "acodec", HAS_ARG | OPT_STRING | OPT_EXPERT, {    &audio_codec_name }, "force audio decoder",    "decoder_name" },
-//    { "scodec", HAS_ARG | OPT_STRING | OPT_EXPERT, { &subtitle_codec_name }, "force subtitle decoder", "decoder_name" },
-//    { "vcodec", HAS_ARG | OPT_STRING | OPT_EXPERT, {    &video_codec_name }, "force video decoder",    "decoder_name" },
-//    { "autorotate", OPT_BOOL, { &autorotate }, "automatically rotate video", "" },
-//    { "find_stream_info", OPT_BOOL | OPT_INPUT | OPT_EXPERT, { &find_stream_info },
-//        "read and decode the streams to fill missing information with heuristics" },
-//    { "filter_threads", HAS_ARG | OPT_INT | OPT_EXPERT, { &filter_nbthreads }, "number of filter threads per graph" },
-//    { NULL, },
-//};
-
-//static void show_usage(void)
-//{
-//    av_log(NULL, AV_LOG_INFO, "Simple media player\n");
-//    av_log(NULL, AV_LOG_INFO, "usage: %s [options] input_file\n", program_name);
-//    av_log(NULL, AV_LOG_INFO, "\n");
-//}
-
-//void show_help_default(const char *opt, const char *arg)
-//{
-//    av_log_set_callback(log_callback_help);
-//    show_usage();
-//    show_help_options(options, "Main options:", 0, OPT_EXPERT, 0);
-//    show_help_options(options, "Advanced options:", OPT_EXPERT, 0, 0);
-//    printf("\n");
-//    show_help_children(avcodec_get_class(), AV_OPT_FLAG_DECODING_PARAM);
-//    show_help_children(avformat_get_class(), AV_OPT_FLAG_DECODING_PARAM);
-//#if !CONFIG_AVFILTER
-//    show_help_children(sws_get_class(), AV_OPT_FLAG_ENCODING_PARAM);
-//#else
-//    show_help_children(avfilter_get_class(), AV_OPT_FLAG_FILTERING_PARAM);
-//#endif
-//    printf("\nWhile playing:\n"
-//           "q, ESC              quit\n"
-//           "f                   toggle full screen\n"
-//           "p, SPC              pause\n"
-//           "m                   toggle mute\n"
-//           "9, 0                decrease and increase volume respectively\n"
-//           "/, *                decrease and increase volume respectively\n"
-//           "a                   cycle audio channel in the current program\n"
-//           "v                   cycle video channel\n"
-//           "t                   cycle subtitle channel in the current program\n"
-//           "c                   cycle program\n"
-//           "w                   cycle video filters or show modes\n"
-//           "s                   activate frame-step mode\n"
-//           "left/right          seek backward/forward 10 seconds or to custom interval if -seek_interval is set\n"
-//           "down/up             seek backward/forward 1 minute\n"
-//           "page down/page up   seek backward/forward 10 minutes\n"
-//           "right mouse click   seek to percentage in file corresponding to fraction of width\n"
-//           "left double-click   toggle full screen\n"
-//           );
-//}
 
 /* Called from the main */
 int init()
 {
-    int flags;
     VideoState *is;
     
-    /*if(m == NULL)
-        m = this;*///передача форми у статичний об'єкт для того, аби використовувати її при виконанні
-    //статичних методів (у яких просто this не можна використати)
     
     /*init_dynload();*/ //Initialize dynamic library loading.
 
@@ -3557,10 +3428,7 @@ int init()
 //    parse_loglevel(argc, argv, options);
 
     /* register all codecs, demux and protocols */
-#if CONFIG_AVDEVICE
-    avdevice_register_all();
-#endif
-    avformat_network_init();
+
 
     signal(SIGINT , sigterm_handler); /* Interrupt (ANSI).    */
     signal(SIGTERM, sigterm_handler); /* Termination (ANSI).  */
@@ -3577,78 +3445,60 @@ int init()
 //        exit(1);
 //    }
 
-    if (display_disable) {
-        video_disable = 1;
-    }
-    flags = SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER;
-    //задаємо флеги для запуску сдл
-    if (audio_disable)
-        flags &= ~SDL_INIT_AUDIO;
-    else {
-        /* Try to work around an occasional ALSA buffer underflow issue when the
-         * period size is NPOT due to ALSA resampling by forcing the buffer size. */
-        if (!SDL_getenv("SDL_AUDIO_ALSA_SET_BUFFER_SIZE"))
-            SDL_setenv("SDL_AUDIO_ALSA_SET_BUFFER_SIZE","1", 1);
-    }
-    if (display_disable)
-        flags &= ~SDL_INIT_VIDEO;
-    if (SDL_Init (flags)) {
-//        av_log(NULL, AV_LOG_FATAL, "Could not initialize SDL - %s\n", SDL_GetError());
-//        av_log(NULL, AV_LOG_FATAL, "(Did you set the DISPLAY variable?)\n");
-        QMessageBox::critical(m, "Помилка","Не вдалось ініціалізувати SDL");
-        exit(1);
-    }
+
 
     SDL_EventState(SDL_SYSWMEVENT, SDL_IGNORE);
     SDL_EventState(SDL_USEREVENT, SDL_IGNORE);
 
-    if (!display_disable) {
-        int flags = SDL_WINDOW_HIDDEN;
-        if (alwaysontop)
-#if SDL_VERSION_ATLEAST(2,0,5)
-            flags |= SDL_WINDOW_ALWAYS_ON_TOP;
-#else
-            av_log(NULL, AV_LOG_WARNING, "Your SDL version doesn't support SDL_WINDOW_ALWAYS_ON_TOP. Feature will be inactive.\n");
-#endif
-        if (borderless)
-            flags |= SDL_WINDOW_BORDERLESS;
-        else
-            flags |= SDL_WINDOW_RESIZABLE;
+//    if (!display_disable) {
+//        int flags = SDL_WINDOW_HIDDEN;
+//        if (alwaysontop)
+////#if SDL_VERSION_ATLEAST(2,0,5)
+//            flags |= SDL_WINDOW_ALWAYS_ON_TOP;
+////#else
+////            av_log(NULL, AV_LOG_WARNING, "Your SDL version doesn't support SDL_WINDOW_ALWAYS_ON_TOP. Feature will be inactive.\n");
+////#endif
+//        if (borderless)
+//            flags |= SDL_WINDOW_BORDERLESS;
+//        else
+//            flags |= SDL_WINDOW_RESIZABLE;
 
-#ifdef SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR
-        SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
-#endif
-        //створюємо віконце
-        window = SDL_CreateWindow(program_name, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, default_width, default_height, flags);
-        SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
-        if (window) {
-            //і рендерер
-            renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-            if (!renderer) {
-//                av_log(NULL, AV_LOG_WARNING, "Failed to initialize a hardware accelerated renderer: %s\n", SDL_GetError());
-                renderer = SDL_CreateRenderer(window, -1, 0);
-            }
-            if (renderer) {
-                SDL_GetRendererInfo(renderer, &renderer_info);
-//                    av_log(NULL, AV_LOG_VERBOSE, "Initialized %s renderer.\n", renderer_info.name);
-            }
-        }
-        if (!window || !renderer || !renderer_info.num_texture_formats) {
-//            av_log(NULL, AV_LOG_FATAL, "Failed to create window or renderer: %s", SDL_GetError());
-            QMessageBox::critical(m, "Помилка","Не вдалось створити вікно або рендерер");            
-            do_exit(NULL);
-        }
-    }
+//#ifdef SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR
+//        SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
+//#endif
+//        //створюємо віконце
+//        window = SDL_CreateWindow(program_name, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, default_width, default_height, flags);
+//        SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
+//        if (window) {
+//            //і рендерер
+//            renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+//            if (!renderer) {
+////                av_log(NULL, AV_LOG_WARNING, "Failed to initialize a hardware accelerated renderer: %s\n", SDL_GetError());
+//                renderer = SDL_CreateRenderer(window, -1, 0);
+//            }
+//            if (renderer) {
+//                SDL_GetRendererInfo(renderer, &renderer_info);
+////                    av_log(NULL, AV_LOG_VERBOSE, "Initialized %s renderer.\n", renderer_info.name);
+//            }
+//        }
+//        if (!window || !renderer || !renderer_info.num_texture_formats) {
+////            av_log(NULL, AV_LOG_FATAL, "Failed to create window or renderer: %s", SDL_GetError());
+//            QMessageBox::critical(m, "Помилка","Не вдалось створити вікно або рендерер");            
+//            do_exit(NULL);
+//        }
+//    }
     //створюємо відеостейт
     is = stream_open(input_filename, file_iformat);
+    m->setWindowTitle(input_filename);
     if (!is) {
 //        av_log(NULL, AV_LOG_FATAL, "Failed to initialize VideoState!\n");
 //        do_exit(NULL);
         QMessageBox::critical(m, "Помилка", "Не вдалось ініціалізувати VideoState");
         return 0;
     }
-
-    //і в путєшествіє)))
+    global_v = is;
+    //і в добру путь - відтворюємо відео і контролюємо події
+    //такі як зміна розміру вікна, натиск на кнопку тощо
     event_loop(is);
 
     /* never returns */
@@ -3659,20 +3509,18 @@ int init()
 std::string reformat_file_name(QString filename){
     std::string s;
     std::string fn_std_str = filename.toStdString();
-    s += "\"";
     for(int i = 0; i < fn_std_str.length(); i++){
         if(fn_std_str[i] == '/')
-            s += '\\';
+            s += "\\";
         else
             s += fn_std_str[i];
     }
-    s += "\"";
     return s;
 }
 
 void MainWindow::on_action_open_f_triggered()
 {
-    QString file_name = QFileDialog::getOpenFileName(this, "Відкрити файл", QDir::currentPath(), "Медіафайли (*.3g2 *.3gp *.3gp2 *.3gpp *.669 *.a52 *.aac *.ac3 "
+    QString file_name = QFileDialog::getOpenFileName(this, "Відкрити файл", QDir::homePath(), "Медіафайли (*.3g2 *.3gp *.3gp2 *.3gpp *.669 *.a52 *.aac *.ac3 "
                                                                                                  "*.adt *.adt *.adts *.aif *.aifc *.aiff *.amb *.amr *.amv *.aob "
                                                                                                  "*.ape *.asf *.au *.avi *.awb *.bik *.bin *.caf *.crf *.dav *.divx "
                                                                                                  "*.drc *.dv *.dvr-ms *.evo *.f4v *.flac *.flv *.gvi *.gxf *.iso "
@@ -3696,19 +3544,138 @@ void MainWindow::on_action_open_f_triggered()
                                                                                                  "*.mp3 *.mpc *.mpga *.mus *.oga *.ogg *.oma *.opus *.qcp *.ra *.rmi *.s3m "
                                                                                                  "*.sid *.spx *.tak *.thd *.tta *.voc *.vqf *.w64 *.wav *.wma *.wv *.xa *.xm);;"
                                                                                                  "Усі файли (*.*)");
+    if(file_name == "")
+        return;
     AVFormatContext* check_format = NULL;
-    ui->plainTextEdit->setPlainText(QString::fromStdString(reformat_file_name(file_name)));
-    if(avformat_open_input(&check_format, reformat_file_name(file_name).c_str(), NULL, NULL) < 0){
+    std::string s = reformat_file_name(file_name);
+    const char* fn = s.c_str();
+    if(avformat_open_input(&check_format, fn, NULL, NULL) < 0){
         //Перевірка на те, чи можна відкрити файл (якщо хтось захоче відкрити НЕмедіафайл)
         QMessageBox::warning(this, "Помилка", "Не вдалось відкрити файл. Перевірте розширення файлу.");
         return;
     }
-    //якщо є медіафайлом, відкриваємо pFormatCtx
-    m = this;
-    QMessageBox::critical(m, "Капець", "Я поки не рішив як інтегрувати то тому насолоджуйтесь дискрешиєю");
+    if(global_v)
+        stream_close(global_v);
+    //якщо є медіафайлом:
+    input_filename = fn;
+    file_iformat = check_format->iformat;
+    
+    if(!m)
+        m = this;//передача форми у статичний об'єкт для того, аби використовувати її при виконанні
+    //статичних методів (у яких просто this не можна використати)
+    init();
+//    QMessageBox::critical(m, "Капець", "Я поки не рішив як інтегрувати то тому насолоджуйтесь дискрешиєю");
 }
 
 void MainWindow::on_action_exit_triggered()
 {
+    do_exit(global_v);
+    SDL_Quit();
+    exit(0);
     QApplication::exit();
+}
+
+void MainWindow::on_pushButton_play_clicked()
+{
+    if(global_v)
+    {
+        toggle_pause(global_v);
+        if(global_v->paused)
+            ui->pushButton_play->setIcon(QIcon(":/img/pause.png"));
+        else
+            ui->pushButton_play->setIcon(QIcon(":/img/start.png"));
+        ui->pushButton_play->setIconSize(QSize(20, 20));
+    }
+}
+
+void MainWindow::closeEvent(QCloseEvent *event){
+    do_exit(global_v);
+    SDL_Quit();
+    exit(0);
+    event->accept();
+}
+
+void MainWindow::on_horizontalSlider_sliderReleased()
+{
+    if(global_v)
+    {no_move_slider = false;
+    double pos;
+    pos = get_master_clock(global_v);
+    if (isnan(pos))
+        pos = (double)global_v->seek_pos / AV_TIME_BASE;
+    int durs = global_v->ic->duration / AV_TIME_BASE;
+    pos = ui->horizontalSlider->value() * durs / 10000;
+    if (global_v->ic->start_time != AV_NOPTS_VALUE && pos < global_v->ic->start_time / (double)AV_TIME_BASE)
+        pos = global_v->ic->start_time / (double)AV_TIME_BASE;
+    stream_seek(global_v, (int64_t)(pos * AV_TIME_BASE), 0, 0);}
+}
+
+
+void MainWindow::on_horizontalSlider_sliderPressed()
+{
+    no_move_slider = true;
+}
+
+
+void MainWindow::on_horizontalSlider_2_sliderMoved(int position)
+{
+    int pos = position * SDL_MIX_MAXVOLUME / 100;
+    double volume_level = pos ? (20 * log(pos / (double)SDL_MIX_MAXVOLUME) / log(10)) : -1000.0; //логарифмічно міняємо гучність
+    int new_volume = lrint(SDL_MIX_MAXVOLUME * pow(10.0, (volume_level) / 20.0));
+    global_v->audio_volume = av_clip(global_v->audio_volume == new_volume ? global_v->audio_volume : new_volume, 0, SDL_MIX_MAXVOLUME);
+}
+
+
+void MainWindow::on_pushButton_mute_clicked()
+{
+    if(global_v)
+        toggle_mute(global_v);
+}
+
+
+void MainWindow::on_pushButton_stop_clicked()
+{
+    if(global_v)
+    {
+        ui->horizontalSlider->setValue(0);
+        ui->label_cur->setText(get_hh_mm_ss(0));
+        stream_seek(global_v, 0, 0, 0);
+        set_clock(&global_v->extclk, get_clock(&global_v->extclk), global_v->extclk.serial);
+        global_v->paused = global_v->audclk.paused = global_v->vidclk.paused = global_v->extclk.paused = true;
+        global_v->step = 0;
+    }
+}
+
+void MainWindow::SetActions(QString *titles, int nb_streams){
+    bool on[10];
+    QString texts[10];
+    int i = 0;
+    for(i = 0; i < 10; i++){
+        on[i] = false;
+    }
+    for(i = 0; i < nb_streams; i++){
+        on[i] = true;
+        texts[i] = titles[i];
+    }
+    ui->action_aud1->setVisible(on[0]);
+    ui->action_aud2->setVisible(on[1]);
+    ui->action_aud3->setVisible(on[2]);
+    ui->action_aud4->setVisible(on[3]);
+    ui->action_aud5->setVisible(on[4]);
+    ui->action_aud6->setVisible(on[5]);
+    ui->action_aud7->setVisible(on[6]);
+    ui->action_aud8->setVisible(on[7]);
+    ui->action_aud9->setVisible(on[8]);
+    ui->action_aud10->setVisible(on[9]);
+    
+    ui->action_aud1->setText(texts[0]);
+    ui->action_aud2->setText(texts[1]);
+    ui->action_aud3->setText(texts[2]);
+    ui->action_aud4->setText(texts[3]);
+    ui->action_aud5->setText(texts[4]);
+    ui->action_aud6->setText(texts[5]);
+    ui->action_aud7->setText(texts[6]);
+    ui->action_aud8->setText(texts[7]);
+    ui->action_aud9->setText(texts[8]);
+    ui->action_aud10->setText(texts[9]);
 }

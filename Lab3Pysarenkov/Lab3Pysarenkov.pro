@@ -10,22 +10,16 @@ CONFIG += c++17
 
 SOURCES += \
     main.cpp \
-    mainwindow.cpp
+    mainwindow.cpp \
+    playerwindow.cpp \
+    sdlwidget.cpp
 
 HEADERS += \
     macro_defs.h \
     mainwindow.h \
+    playerwindow.h \
+    sdlwidget.h \
     structs_enums.h
-
-INCLUDEPATH += \
-libavcodec/
-libavformat/
-libswscale/
-
-LIBS += \
--lavcodec
--lavformat
--lswsscale
 
 FORMS += \
     mainwindow.ui

@@ -43,6 +43,8 @@ public:
     ~MainWindow();
 public slots:    
     void ShowMessage(int type, QString message);
+    
+    void SetActions(QString* titles, int nb_streams);
 signals:
     void SendMessage(int type, QString message);
 private slots:
@@ -190,10 +192,22 @@ private slots:
 //    //void show_usage(void)
 //    //void show_help_default(const char *opt, const char *arg)
 //    int init();
+    void on_pushButton_play_clicked();
+    
+    void on_horizontalSlider_sliderReleased();
+    
+    void on_horizontalSlider_sliderPressed();
+    
+    void on_horizontalSlider_2_sliderMoved(int position);
+    
+    void on_pushButton_mute_clicked();
+    
+    void on_pushButton_stop_clicked();
+    
 private:
     Ui::MainWindow *ui;
     
-    
+    void closeEvent(QCloseEvent *event);
     
 };
 #endif // MAINWINDOW_H
