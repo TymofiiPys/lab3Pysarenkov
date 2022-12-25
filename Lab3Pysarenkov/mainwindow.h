@@ -44,7 +44,9 @@ public:
 public slots:    
     void ShowMessage(int type, QString message);
     
-    void SetActions(QString* titles, int nb_streams);
+    void SetActions_audio(QString* titles, int nb_streams);
+    void SetActions_video(QString* titles, int nb_streams);
+    void SetActions_sub(QString* titles, int nb_streams);
 signals:
     void SendMessage(int type, QString message);
 private slots:
@@ -192,6 +194,9 @@ private slots:
 //    //void show_usage(void)
 //    //void show_help_default(const char *opt, const char *arg)
 //    int init();
+    
+    void keyPressEvent( QKeyEvent *event );
+    
     void on_pushButton_play_clicked();
     
     void on_horizontalSlider_sliderReleased();
@@ -203,6 +208,68 @@ private slots:
     void on_pushButton_mute_clicked();
     
     void on_pushButton_stop_clicked();
+    
+    void on_action_aud1_triggered();
+    
+    void on_action_aud2_triggered();
+    
+    void on_action_aud3_triggered();
+    
+    void on_action_aud4_triggered();
+    
+    void on_action_aud5_triggered();
+    
+    void on_action_aud6_triggered();
+    
+    void on_action_aud7_triggered();
+    
+    void on_action_aud8_triggered();
+    
+    void on_action_aud9_triggered();
+    
+    void on_action_aud10_triggered();
+    
+    void on_action_vid1_triggered();
+    
+    void on_action_vid2_triggered();
+    
+    void on_action_vid3_triggered();
+    
+    void on_action_vid4_triggered();
+    
+    void on_action_vid5_triggered();
+    
+    void on_action_vid6_triggered();
+    
+    void on_action_vid7_triggered();
+    
+    void on_action_vid8_triggered();
+    
+    void on_action_vid9_triggered();
+    
+    void on_action_vid10_triggered();
+    
+    void on_action_sub1_triggered();
+    
+    void on_action_sub2_triggered();
+    
+    void on_action_sub3_triggered();
+    
+    void on_action_sub4_triggered();
+    
+    void on_action_sub5_triggered();
+    
+    void on_action_sub6_triggered();
+    
+    void on_action_sub7_triggered();
+    
+    void on_action_sub8_triggered();
+    
+    void on_action_sub9_triggered();
+    
+    void on_action_sub10_triggered();
+    
+    void on_pushButton_clicked();
     
 private:
     Ui::MainWindow *ui;

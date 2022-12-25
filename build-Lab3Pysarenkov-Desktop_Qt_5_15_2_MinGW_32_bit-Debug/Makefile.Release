@@ -120,10 +120,12 @@ release/qrc_img.cpp: ../Lab3Pysarenkov/img.qrc \
 		../Lab3Pysarenkov/img/start_m.png \
 		../Lab3Pysarenkov/img/??????.png \
 		../Lab3Pysarenkov/img/mute.png \
+		../Lab3Pysarenkov/img/fullscr.png \
 		../Lab3Pysarenkov/img/cont.png \
 		../Lab3Pysarenkov/img/next.png \
 		../Lab3Pysarenkov/img/start.png \
 		../Lab3Pysarenkov/img/exit.png \
+		../Lab3Pysarenkov/img/chosen.png \
 		../Lab3Pysarenkov/img/pause.png
 	E:\Qt\5.15.2\mingw81_32\bin\rcc.exe -name img ..\Lab3Pysarenkov\img.qrc -o release\qrc_img.cpp
 

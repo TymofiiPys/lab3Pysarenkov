@@ -38,6 +38,7 @@ extern "C"
 #include <libavutil/opt.h>
 #include <libavcodec/avfft.h>
 #include <libswresample/swresample.h>
+
 //SDL
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_thread.h>
@@ -46,11 +47,7 @@ extern "C"
 //#include "opt_common.h"
 }
 
-//#if CONFIG_AVFILTER
-//# include "libavfilter/avfilter.h"
-//# include "libavfilter/buffersink.h"
-//# include "libavfilter/buffersrc.h"
-//#endif
+
 
 static MainWindow *m; //для взаємодії із формою
 
@@ -121,6 +118,10 @@ QSlider* slider;
 bool no_move_slider;
 QLabel* lcur;
 QLabel* ldur;
+
+int *vid_streams;
+int *aud_streams;
+int *sub_streams;
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -1416,10 +1417,6 @@ static double compute_target_delay(double delay, VideoState *is)
                 delay = 2 * delay;
         }
     }
-
-//    av_log(NULL, AV_LOG_TRACE, "video: delay=%0.3f A-V=%f\n",
-//            delay, -diff);
-
     return delay;
 }
 
@@ -1435,7 +1432,7 @@ static double vp_duration(VideoState *is, Frame *vp, Frame *nextvp) {
     }
 }
 
-static void update_video_pts(VideoState *is, double pts, /*int64_t pos,*/ int serial) {
+static void update_video_pts(VideoState *is, double pts, int serial) {
     set_clock(&is->vidclk, pts, serial);
     sync_clock_to_slave(&is->extclk, &is->vidclk);
 }
@@ -1591,27 +1588,6 @@ display:
                     slider->setSliderPosition(get_master_clock(is) * 10000/(is->ic->duration / 1000000LL));
                 lcur->setText(get_hh_mm_ss(get_master_clock(is)));
             }
-//            av_bprint_init(&buf, 0, AV_BPRINT_SIZE_AUTOMATIC);
-//            av_bprintf(&buf,
-//                      "%7.2f %s:%7.3f fd=%4d aq=%5dKB vq=%5dKB sq=%5dB f=%"PRId64"/%"PRId64"   \r",
-//                      get_master_clock(is),
-//                      (is->audio_st && is->video_st) ? "A-V" : (is->video_st ? "M-V" : (is->audio_st ? "M-A" : "   ")),
-//                      av_diff,
-//                      is->frame_drops_early + is->frame_drops_late,
-//                      aqsize / 1024,
-//                      vqsize / 1024,
-//                      sqsize,
-//                      is->video_st ? is->viddec.avctx->pts_correction_num_faulty_dts : 0,
-//                      is->video_st ? is->viddec.avctx->pts_correction_num_faulty_pts : 0);
-
-//            if (show_status == 1 && AV_LOG_INFO > av_log_get_level())
-//                fprintf(stderr, "%s", buf.str);
-//            else
-//                av_log(NULL, AV_LOG_INFO, "%s", buf.str);
-
-//            fflush(stderr);
-//            av_bprint_finalize(&buf, NULL);
-
             last_time = cur_time;
         }
     }
@@ -1683,235 +1659,6 @@ static int get_video_frame(VideoState *is, AVFrame *frame)
     return got_picture;
 }
 
-//#if CONFIG_AVFILTER
-//static int configure_filtergraph(AVFilterGraph *graph, const char *filtergraph,
-//                                 AVFilterContext *source_ctx, AVFilterContext *sink_ctx)
-//{
-//    int ret, i;
-//    int nb_filters = graph->nb_filters;
-//    AVFilterInOut *outputs = NULL, *inputs = NULL;
-
-//    if (filtergraph) {
-//        outputs = avfilter_inout_alloc();
-//        inputs  = avfilter_inout_alloc();
-//        if (!outputs || !inputs) {
-//            ret = AVERROR(ENOMEM);
-//            goto fail;
-//        }
-
-//        outputs->name       = av_strdup("in");
-//        outputs->filter_ctx = source_ctx;
-//        outputs->pad_idx    = 0;
-//        outputs->next       = NULL;
-
-//        inputs->name        = av_strdup("out");
-//        inputs->filter_ctx  = sink_ctx;
-//        inputs->pad_idx     = 0;
-//        inputs->next        = NULL;
-
-//        if ((ret = avfilter_graph_parse_ptr(graph, filtergraph, &inputs, &outputs, NULL)) < 0)
-//            goto fail;
-//    } else {
-//        if ((ret = avfilter_link(source_ctx, 0, sink_ctx, 0)) < 0)
-//            goto fail;
-//    }
-
-//    /* Reorder the filters to ensure that inputs of the custom filters are merged first */
-//    for (i = 0; i < graph->nb_filters - nb_filters; i++)
-//        FFSWAP(AVFilterContext*, graph->filters[i], graph->filters[i + nb_filters]);
-
-//    ret = avfilter_graph_config(graph, NULL);
-//fail:
-//    avfilter_inout_free(&outputs);
-//    avfilter_inout_free(&inputs);
-//    return ret;
-//}
-
-//static int configure_video_filters(AVFilterGraph *graph, VideoState *is, const char *vfilters, AVFrame *frame)
-//{
-//    enum AVPixelFormat pix_fmts[FF_ARRAY_ELEMS(sdl_texture_format_map)];
-//    char sws_flags_str[512] = "";
-//    char buffersrc_args[256];
-//    int ret;
-//    AVFilterContext *filt_src = NULL, *filt_out = NULL, *last_filter = NULL;
-//    AVCodecParameters *codecpar = is->video_st->codecpar;
-//    AVRational fr = av_guess_frame_rate(is->ic, is->video_st, NULL);
-//    const AVDictionaryEntry *e = NULL;
-//    int nb_pix_fmts = 0;
-//    int i, j;
-
-//    for (i = 0; i < renderer_info.num_texture_formats; i++) {
-//        for (j = 0; j < FF_ARRAY_ELEMS(sdl_texture_format_map) - 1; j++) {
-//            if (renderer_info.texture_formats[i] == sdl_texture_format_map[j].texture_fmt) {
-//                pix_fmts[nb_pix_fmts++] = sdl_texture_format_map[j].format;
-//                break;
-//            }
-//        }
-//    }
-//    pix_fmts[nb_pix_fmts] = AV_PIX_FMT_NONE;
-
-//    while ((e = av_dict_iterate(sws_dict, e))) {
-//        if (!strcmp(e->key, "sws_flags")) {
-//            av_strlcatf(sws_flags_str, sizeof(sws_flags_str), "%s=%s:", "flags", e->value);
-//        } else
-//            av_strlcatf(sws_flags_str, sizeof(sws_flags_str), "%s=%s:", e->key, e->value);
-//    }
-//    if (strlen(sws_flags_str))
-//        sws_flags_str[strlen(sws_flags_str)-1] = '\0';
-
-//    graph->scale_sws_opts = av_strdup(sws_flags_str);
-
-//    snprintf(buffersrc_args, sizeof(buffersrc_args),
-//             "video_size=%dx%d:pix_fmt=%d:time_base=%d/%d:pixel_aspect=%d/%d",
-//             frame->width, frame->height, frame->format,
-//             is->video_st->time_base.num, is->video_st->time_base.den,
-//             codecpar->sample_aspect_ratio.num, FFMAX(codecpar->sample_aspect_ratio.den, 1));
-//    if (fr.num && fr.den)
-//        av_strlcatf(buffersrc_args, sizeof(buffersrc_args), ":frame_rate=%d/%d", fr.num, fr.den);
-
-//    if ((ret = avfilter_graph_create_filter(&filt_src,
-//                                            avfilter_get_by_name("buffer"),
-//                                            "ffplay_buffer", buffersrc_args, NULL,
-//                                            graph)) < 0)
-//        goto fail;
-
-//    ret = avfilter_graph_create_filter(&filt_out,
-//                                       avfilter_get_by_name("buffersink"),
-//                                       "ffplay_buffersink", NULL, NULL, graph);
-//    if (ret < 0)
-//        goto fail;
-
-//    if ((ret = av_opt_set_int_list(filt_out, "pix_fmts", pix_fmts,  AV_PIX_FMT_NONE, AV_OPT_SEARCH_CHILDREN)) < 0)
-//        goto fail;
-
-//    last_filter = filt_out;
-
-///* Note: this macro adds a filter before the lastly added filter, so the
-// * processing order of the filters is in reverse */
-//#define INSERT_FILT(name, arg) do {                                          \
-//    AVFilterContext *filt_ctx;                                               \
-//                                                                             \
-//    ret = avfilter_graph_create_filter(&filt_ctx,                            \
-//                                       avfilter_get_by_name(name),           \
-//                                       "ffplay_" name, arg, NULL, graph);    \
-//    if (ret < 0)                                                             \
-//        goto fail;                                                           \
-//                                                                             \
-//    ret = avfilter_link(filt_ctx, 0, last_filter, 0);                        \
-//    if (ret < 0)                                                             \
-//        goto fail;                                                           \
-//                                                                             \
-//    last_filter = filt_ctx;                                                  \
-//} while (0)
-
-//    if (autorotate) {
-//        double theta = 0.0;
-//        int32_t *displaymatrix = NULL;
-//        AVFrameSideData *sd = av_frame_get_side_data(frame, AV_FRAME_DATA_DISPLAYMATRIX);
-//        if (sd)
-//            displaymatrix = (int32_t *)sd->data;
-//        if (!displaymatrix)
-//            displaymatrix = (int32_t *)av_stream_get_side_data(is->video_st, AV_PKT_DATA_DISPLAYMATRIX, NULL);
-//        theta = get_rotation(displaymatrix);
-
-//        if (fabs(theta - 90) < 1.0) {
-//            INSERT_FILT("transpose", "clock");
-//        } else if (fabs(theta - 180) < 1.0) {
-//            INSERT_FILT("hflip", NULL);
-//            INSERT_FILT("vflip", NULL);
-//        } else if (fabs(theta - 270) < 1.0) {
-//            INSERT_FILT("transpose", "cclock");
-//        } else if (fabs(theta) > 1.0) {
-//            char rotate_buf[64];
-//            snprintf(rotate_buf, sizeof(rotate_buf), "%f*PI/180", theta);
-//            INSERT_FILT("rotate", rotate_buf);
-//        }
-//    }
-
-//    if ((ret = configure_filtergraph(graph, vfilters, filt_src, last_filter)) < 0)
-//        goto fail;
-
-//    is->in_video_filter  = filt_src;
-//    is->out_video_filter = filt_out;
-
-//fail:
-//    return ret;
-//}
-
-//static int configure_audio_filters(VideoState *is, const char *afilters, int force_output_format)
-//{
-//    static const enum AVSampleFormat sample_fmts[] = { AV_SAMPLE_FMT_S16, AV_SAMPLE_FMT_NONE };
-//    int sample_rates[2] = { 0, -1 };
-//    AVFilterContext *filt_asrc = NULL, *filt_asink = NULL;
-//    char aresample_swr_opts[512] = "";
-//    const AVDictionaryEntry *e = NULL;
-//    AVBPrint bp;
-//    char asrc_args[256];
-//    int ret;
-
-//    avfilter_graph_free(&is->agraph);
-//    if (!(is->agraph = avfilter_graph_alloc()))
-//        return AVERROR(ENOMEM);
-//    is->agraph->nb_threads = filter_nbthreads;
-
-//    av_bprint_init(&bp, 0, AV_BPRINT_SIZE_AUTOMATIC);
-
-//    while ((e = av_dict_iterate(swr_opts, e)))
-//        av_strlcatf(aresample_swr_opts, sizeof(aresample_swr_opts), "%s=%s:", e->key, e->value);
-//    if (strlen(aresample_swr_opts))
-//        aresample_swr_opts[strlen(aresample_swr_opts)-1] = '\0';
-//    av_opt_set(is->agraph, "aresample_swr_opts", aresample_swr_opts, 0);
-
-//    av_channel_layout_describe_bprint(&is->audio_filter_src.ch_layout, &bp);
-
-//    ret = snprintf(asrc_args, sizeof(asrc_args),
-//                   "sample_rate=%d:sample_fmt=%s:time_base=%d/%d:channel_layout=%s",
-//                   is->audio_filter_src.freq, av_get_sample_fmt_name(is->audio_filter_src.fmt),
-//                   1, is->audio_filter_src.freq, bp.str);
-
-//    ret = avfilter_graph_create_filter(&filt_asrc,
-//                                       avfilter_get_by_name("abuffer"), "ffplay_abuffer",
-//                                       asrc_args, NULL, is->agraph);
-//    if (ret < 0)
-//        goto end;
-
-
-//    ret = avfilter_graph_create_filter(&filt_asink,
-//                                       avfilter_get_by_name("abuffersink"), "ffplay_abuffersink",
-//                                       NULL, NULL, is->agraph);
-//    if (ret < 0)
-//        goto end;
-
-//    if ((ret = av_opt_set_int_list(filt_asink, "sample_fmts", sample_fmts,  AV_SAMPLE_FMT_NONE, AV_OPT_SEARCH_CHILDREN)) < 0)
-//        goto end;
-//    if ((ret = av_opt_set_int(filt_asink, "all_channel_counts", 1, AV_OPT_SEARCH_CHILDREN)) < 0)
-//        goto end;
-
-//    if (force_output_format) {
-//        sample_rates   [0] = is->audio_tgt.freq;
-//        if ((ret = av_opt_set_int(filt_asink, "all_channel_counts", 0, AV_OPT_SEARCH_CHILDREN)) < 0)
-//            goto end;
-//        if ((ret = av_opt_set(filt_asink, "ch_layouts", bp.str, AV_OPT_SEARCH_CHILDREN)) < 0)
-//            goto end;
-//        if ((ret = av_opt_set_int_list(filt_asink, "sample_rates"   , sample_rates   ,  -1, AV_OPT_SEARCH_CHILDREN)) < 0)
-//            goto end;
-//    }
-
-
-//    if ((ret = configure_filtergraph(is->agraph, afilters, filt_asrc, filt_asink)) < 0)
-//        goto end;
-
-//    is->in_audio_filter  = filt_asrc;
-//    is->out_audio_filter = filt_asink;
-
-//end:
-//    if (ret < 0)
-//        avfilter_graph_free(&is->agraph);
-//    av_bprint_finalize(&bp, NULL);
-
-//    return ret;
-//}
-//#endif  /* CONFIG_AVFILTER */
 
 static int audio_thread(void *arg)
 {
@@ -2197,9 +1944,6 @@ static int synchronize_audio(VideoState *is, int nb_samples)
                     max_nb_samples = ((nb_samples * (100 + SAMPLE_CORRECTION_PERCENT_MAX) / 100));
                     wanted_nb_samples = av_clip(wanted_nb_samples, min_nb_samples, max_nb_samples);
                 }
-//                av_log(NULL, AV_LOG_TRACE, "diff=%f adiff=%f sample_diff=%d apts=%0.3f %f\n",
-//                        diff, avg_diff, wanted_nb_samples - nb_samples,
-//                        is->audio_clock, is->audio_diff_threshold);
             }
         } else {
             /* too big difference : may be initial PTS errors, so
@@ -2262,10 +2006,6 @@ static int audio_decode_frame(VideoState *is)
                                                  dec_channel_layout,(AVSampleFormat)af->frame->format, af->frame->sample_rate,
                                                  0, NULL);
         if (!is->swr_ctx || swr_init(is->swr_ctx) < 0) {
-//            av_log(NULL, AV_LOG_ERROR,
-//                   "Cannot create sample rate converter for conversion of %d Hz %s %d channels to %d Hz %s %d channels!\n",
-//                    af->frame->sample_rate, av_get_sample_fmt_name(af->frame->format), af->frame->ch_layout.nb_channels,
-//                    is->audio_tgt.freq, av_get_sample_fmt_name(is->audio_tgt.fmt), is->audio_tgt.ch_layout.nb_channels);
             swr_free(&is->swr_ctx);
             return -1;
         }
@@ -2282,13 +2022,11 @@ static int audio_decode_frame(VideoState *is)
         int out_size  = av_samples_get_buffer_size(NULL, is->audio_tgt.channels, out_count, is->audio_tgt.fmt, 0);
         int len2;
         if (out_size < 0) {
-//            av_log(NULL, AV_LOG_ERROR, "av_samples_get_buffer_size() failed\n");
             return -1;
         }
         if (wanted_nb_samples != af->frame->nb_samples) {
             if (swr_set_compensation(is->swr_ctx, (wanted_nb_samples - af->frame->nb_samples) * is->audio_tgt.freq / af->frame->sample_rate,
                                         wanted_nb_samples * is->audio_tgt.freq / af->frame->sample_rate) < 0) {
-//                av_log(NULL, AV_LOG_ERROR, "swr_set_compensation() failed\n");
                 return -1;
             }
         }
@@ -2297,11 +2035,9 @@ static int audio_decode_frame(VideoState *is)
             return AVERROR(ENOMEM);
         len2 = swr_convert(is->swr_ctx, out, out_count, in, af->frame->nb_samples);//кількість семплів на канал
         if (len2 < 0) {
-//            av_log(NULL, AV_LOG_ERROR, "swr_convert() failed\n");
             return -1;
         }
         if (len2 == out_count) {
-//            av_log(NULL, AV_LOG_WARNING, "audio buffer is probably too small\n");
             if (swr_init(is->swr_ctx) < 0)
                 swr_free(&is->swr_ctx);
         }
@@ -2490,6 +2226,7 @@ static int stream_component_open(VideoState *is, int stream_index)
         case AVMEDIA_TYPE_AUDIO   : is->last_audio_stream    = stream_index; forced_codec_name =    audio_codec_name; break;
         case AVMEDIA_TYPE_SUBTITLE: is->last_subtitle_stream = stream_index; forced_codec_name = subtitle_codec_name; break;
         case AVMEDIA_TYPE_VIDEO   : is->last_video_stream    = stream_index; forced_codec_name =    video_codec_name; break;
+    default: break;
     }
     if (forced_codec_name)
         codec = avcodec_find_decoder_by_name(forced_codec_name);
@@ -2630,7 +2367,7 @@ static int stream_has_enough_packets(AVStream *st, int stream_id, PacketQueue *q
     return stream_id < 0 ||
            queue->abort_request ||
            (st->disposition & AV_DISPOSITION_ATTACHED_PIC) ||
-           queue->nb_packets > MIN_FRAMES && (!queue->duration || av_q2d(st->time_base) * queue->duration > 1.0);
+           (queue->nb_packets > MIN_FRAMES && (!queue->duration || av_q2d(st->time_base) * queue->duration > 1.0));
 }
 
 static int is_realtime(AVFormatContext *s)
@@ -2668,7 +2405,12 @@ static int read_thread(void *arg)
     SDL_mutex *wait_mutex = SDL_CreateMutex();
 //    int scan_all_pmts_set = 0;
     int64_t pkt_ts;
-    QString* titles;
+    QString* titles_aud;
+    QString* titles_vid;
+    QString* titles_sub;
+    int n_aud = 0, i_aud = 0;
+    int n_vid = 0, i_vid = 0;
+    int n_sub = 0, i_sub = 0;
     if (!wait_mutex) {
 //        av_log(NULL, AV_LOG_FATAL, "SDL_CreateMutex(): %s\n", SDL_GetError());
         ret = AVERROR(ENOMEM);
@@ -2767,8 +2509,8 @@ static int read_thread(void *arg)
 
     is->realtime = is_realtime(ic);
 
-    if (show_status)
-        av_dump_format(ic, 0, is->filename, 0);
+//    if (show_status)
+//        av_dump_format(ic, 0, is->filename, 0);
 
     //шукаємо усі потоки
     for (i = 0; i < ic->nb_streams; i++) {
@@ -2778,6 +2520,20 @@ static int read_thread(void *arg)
         if (type >= 0 && wanted_stream_spec[type] && st_index[type] == -1)
             if (avformat_match_stream_specifier(ic, st, wanted_stream_spec[type]) > 0)
                 st_index[type] = i;
+        switch(type){
+        case AVMEDIA_TYPE_VIDEO:
+            if(!(st->disposition & AV_DISPOSITION_ATTACHED_PIC))
+                n_vid++;
+            break;
+        case AVMEDIA_TYPE_AUDIO:
+            n_aud++;
+            break;
+        case AVMEDIA_TYPE_SUBTITLE:
+            n_sub++;
+            break;
+        default:
+            break;
+        }
     }
     for (i = 0; i < AVMEDIA_TYPE_NB; i++) {
         if (wanted_stream_spec[i] && st_index[i] == -1) {
@@ -2785,23 +2541,74 @@ static int read_thread(void *arg)
             st_index[i] = INT_MAX;
         }
     }
-    titles = new QString[ic->nb_streams];
+    titles_aud = new QString[n_aud];
+    titles_vid = new QString[n_vid];
+    titles_sub = new QString[n_sub];
+    aud_streams = new int[n_aud];
+    vid_streams = new int[n_vid];
+    sub_streams = new int[n_sub];
     for (i = 0; i < ic->nb_streams; i++) {
         AVStream *st = ic->streams[i];
         lang = av_dict_get(st->metadata, "language", NULL, 0);
         title = av_dict_get(st->metadata, "title", NULL, 0);
-        if(title != nullptr)
-        {titles[i] = title->value;
+        switch(st->codecpar->codec_type){
+        case AVMEDIA_TYPE_AUDIO:
+            if(title != nullptr)
+            {
+                titles_aud[i_aud] = title->value;
+            }
+            else{
+                titles_aud[i_aud] = "Доріжка " + QString::number(i_aud + 1);
+            }
+            if(lang!= nullptr){
+                titles_aud[i_aud] += " [";
+                titles_aud[i_aud] += lang->value;
+                titles_aud[i_aud] += "]";
+            }
+            aud_streams[i_aud] = i;
+            i_aud++;
+            break;
+        case AVMEDIA_TYPE_VIDEO:
+            if(!(st->disposition & AV_DISPOSITION_ATTACHED_PIC)){
+                if(title != nullptr)
+                {
+                    titles_vid[i_vid] = title->value;
+                }
+                else{
+                    titles_vid[i_vid] = "Доріжка " + QString::number(i_vid + 1);
+                }
+                if(lang!= nullptr){
+                    titles_vid[i_vid] += " [";
+                    titles_vid[i_vid] += lang->value;
+                    titles_vid[i_vid] += "]";
+                }
+                vid_streams[i_vid] = i;
+                i_vid++;
+            }
+            break;
+        case AVMEDIA_TYPE_SUBTITLE:
+            if(title != nullptr)
+            {
+                titles_sub[i_sub] = title->value;
+            }
+            else{
+                titles_sub[i_sub] = "Доріжка " + QString::number(i_sub + 1);
+            }
+            if(lang!= nullptr){
+                titles_sub[i_sub] += " [";
+                titles_sub[i_sub] += lang->value;
+                titles_sub[i_sub] += "]";
+            }
+            sub_streams[i_sub] = i;
+            i_sub++;
+            break;
+        default:
+            break;
         }
-        else{
-            titles[i] = "Доріжка " + QString::number(i + 1);
-        }
-        if(lang!= nullptr){
-        titles[i] += " [";
-        titles[i] += lang->value;
-        titles[i] += "]";}
     }
-    m->SetActions(titles, ic->nb_streams);
+    m->SetActions_audio(titles_aud, n_aud);
+    m->SetActions_video(titles_vid, n_vid);
+    m->SetActions_sub(titles_sub, n_sub);
     //шукаємо потоки для всього всього
     if (!video_disable)
         st_index[AVMEDIA_TYPE_VIDEO] =
@@ -3158,7 +2965,7 @@ static void toggle_audio_display(VideoState *is)
     int next = is->show_mode;
     do {
         next = (next + 1) % SHOW_MODE_NB;
-    } while (next != is->show_mode && (next == SHOW_MODE_VIDEO && !is->video_st || next != SHOW_MODE_VIDEO && !is->audio_st));
+    } while (next != is->show_mode && ((next == SHOW_MODE_VIDEO && !is->video_st) || (next != SHOW_MODE_VIDEO && !is->audio_st)));
     if (is->show_mode != next) {
         is->force_refresh = 1;
         is->show_mode = next;
@@ -3367,20 +3174,7 @@ static void event_loop(VideoState *cur_stream)
                     stream_seek(cur_stream, size*x/cur_stream->width, 0, 1);
                 } else {
                     int64_t ts;
-                    int ns, hh, mm, ss;
-                    int tns, thh, tmm, tss;
-                    tns  = cur_stream->ic->duration / 1000000LL;
-                    thh  = tns / 3600;
-                    tmm  = (tns % 3600) / 60;
-                    tss  = (tns % 60);
                     frac = x / cur_stream->width;
-                    ns   = frac * tns;
-                    hh   = ns / 3600;
-                    mm   = (ns % 3600) / 60;
-                    ss   = (ns % 60);
-//                    av_log(NULL, AV_LOG_INFO,
-//                           "Seek to %2.0f%% (%2d:%02d:%02d) of total duration (%2d:%02d:%02d)       \n", frac*100,
-//                            hh, mm, ss, thh, tmm, tss);
                     ts = frac * cur_stream->ic->duration;
                     if (cur_stream->ic->start_time != AV_NOPTS_VALUE)
                         ts += cur_stream->ic->start_time;
@@ -3646,7 +3440,7 @@ void MainWindow::on_pushButton_stop_clicked()
     }
 }
 
-void MainWindow::SetActions(QString *titles, int nb_streams){
+void MainWindow::SetActions_audio(QString *titles, int nb_streams){
     bool on[10];
     QString texts[10];
     int i = 0;
@@ -3678,4 +3472,339 @@ void MainWindow::SetActions(QString *titles, int nb_streams){
     ui->action_aud8->setText(texts[7]);
     ui->action_aud9->setText(texts[8]);
     ui->action_aud10->setText(texts[9]);
+}
+
+void MainWindow::SetActions_video(QString *titles, int nb_streams){
+    bool on[10];
+    QString texts[10];
+    int i = 0;
+    for(i = 0; i < 10; i++){
+        on[i] = false;
+    }
+    for(i = 0; i < nb_streams; i++){
+        on[i] = true;
+        texts[i] = titles[i];
+    }
+    ui->action_vid1->setVisible(on[0]);
+    ui->action_vid2->setVisible(on[1]);
+    ui->action_vid3->setVisible(on[2]);
+    ui->action_vid4->setVisible(on[3]);
+    ui->action_vid5->setVisible(on[4]);
+    ui->action_vid6->setVisible(on[5]);
+    ui->action_vid7->setVisible(on[6]);
+    ui->action_vid8->setVisible(on[7]);
+    ui->action_vid9->setVisible(on[8]);
+    ui->action_vid10->setVisible(on[9]);
+    
+    ui->action_vid1->setText(texts[0]);
+    ui->action_vid2->setText(texts[1]);
+    ui->action_vid3->setText(texts[2]);
+    ui->action_vid4->setText(texts[3]);
+    ui->action_vid5->setText(texts[4]);
+    ui->action_vid6->setText(texts[5]);
+    ui->action_vid7->setText(texts[6]);
+    ui->action_vid8->setText(texts[7]);
+    ui->action_vid9->setText(texts[8]);
+    ui->action_vid10->setText(texts[9]);
+}
+
+void MainWindow::SetActions_sub(QString *titles, int nb_streams){
+    bool on[10];
+    QString texts[10];
+    int i = 0;
+    for(i = 0; i < 10; i++){
+        on[i] = false;
+    }
+    for(i = 0; i < nb_streams; i++){
+        on[i] = true;
+        texts[i] = titles[i];
+    }
+    ui->action_sub1->setVisible(on[0]);
+    ui->action_sub2->setVisible(on[1]);
+    ui->action_sub3->setVisible(on[2]);
+    ui->action_sub4->setVisible(on[3]);
+    ui->action_sub5->setVisible(on[4]);
+    ui->action_sub6->setVisible(on[5]);
+    ui->action_sub7->setVisible(on[6]);
+    ui->action_sub8->setVisible(on[7]);
+    ui->action_sub9->setVisible(on[8]);
+    ui->action_sub10->setVisible(on[9]);
+    
+    ui->action_sub1->setText(texts[0]);
+    ui->action_sub2->setText(texts[1]);
+    ui->action_sub3->setText(texts[2]);
+    ui->action_sub4->setText(texts[3]);
+    ui->action_sub5->setText(texts[4]);
+    ui->action_sub6->setText(texts[5]);
+    ui->action_sub7->setText(texts[6]);
+    ui->action_sub8->setText(texts[7]);
+    ui->action_sub9->setText(texts[8]);
+    ui->action_sub10->setText(texts[9]);
+}
+
+void MainWindow::on_action_aud1_triggered()
+{
+    stream_component_close(global_v, global_v->audio_stream);
+    stream_component_open(global_v, aud_streams[0]);
+    ui->action_aud1->setIcon(QIcon(":/img/chosen.png"));
+}
+
+
+void MainWindow::on_action_aud2_triggered()
+{
+    stream_component_close(global_v, global_v->audio_stream);
+    stream_component_open(global_v, aud_streams[1]);
+}
+
+
+void MainWindow::on_action_aud3_triggered()
+{
+    stream_component_close(global_v, global_v->audio_stream);
+    stream_component_open(global_v, aud_streams[2]);
+}
+
+
+void MainWindow::on_action_aud4_triggered()
+{
+    stream_component_close(global_v, global_v->audio_stream);
+    stream_component_open(global_v, aud_streams[3]);
+}
+
+
+void MainWindow::on_action_aud5_triggered()
+{
+    stream_component_close(global_v, global_v->audio_stream);
+    stream_component_open(global_v, aud_streams[4]);
+}
+
+
+void MainWindow::on_action_aud6_triggered()
+{
+    stream_component_close(global_v, global_v->audio_stream);
+    stream_component_open(global_v, aud_streams[5]);
+}
+
+
+void MainWindow::on_action_aud7_triggered()
+{
+    stream_component_close(global_v, global_v->audio_stream);
+    stream_component_open(global_v, aud_streams[6]);
+}
+
+
+void MainWindow::on_action_aud8_triggered()
+{
+    stream_component_close(global_v, global_v->audio_stream);
+    stream_component_open(global_v, aud_streams[7]);
+}
+
+
+void MainWindow::on_action_aud9_triggered()
+{
+    stream_component_close(global_v, global_v->audio_stream);
+    stream_component_open(global_v, aud_streams[8]);
+}
+
+
+void MainWindow::on_action_aud10_triggered()
+{
+    stream_component_close(global_v, global_v->audio_stream);
+    stream_component_open(global_v, aud_streams[9]); 
+}
+
+
+
+void MainWindow::on_action_vid1_triggered()
+{
+    stream_component_close(global_v, global_v->video_stream);
+    stream_component_open(global_v, vid_streams[0]);
+}
+
+
+void MainWindow::on_action_vid2_triggered()
+{
+    stream_component_close(global_v, global_v->video_stream);
+    stream_component_open(global_v, vid_streams[1]);
+}
+
+
+void MainWindow::on_action_vid3_triggered()
+{
+    stream_component_close(global_v, global_v->video_stream);
+    stream_component_open(global_v, vid_streams[2]);
+}
+
+
+void MainWindow::on_action_vid4_triggered()
+{
+    stream_component_close(global_v, global_v->video_stream);
+    stream_component_open(global_v, vid_streams[3]);
+}
+
+
+void MainWindow::on_action_vid5_triggered()
+{
+    stream_component_close(global_v, global_v->video_stream);
+    stream_component_open(global_v, vid_streams[4]);
+}
+
+
+void MainWindow::on_action_vid6_triggered()
+{
+    stream_component_close(global_v, global_v->video_stream);
+    stream_component_open(global_v, vid_streams[5]);
+}
+
+
+void MainWindow::on_action_vid7_triggered()
+{
+    stream_component_close(global_v, global_v->video_stream);
+    stream_component_open(global_v, vid_streams[6]);
+}
+
+void MainWindow::on_action_vid8_triggered()
+{
+    stream_component_close(global_v, global_v->video_stream);
+    stream_component_open(global_v, vid_streams[7]);
+}
+
+
+void MainWindow::on_action_vid9_triggered()
+{
+    stream_component_close(global_v, global_v->video_stream);
+    stream_component_open(global_v, vid_streams[8]);
+}
+
+
+void MainWindow::on_action_vid10_triggered()
+{
+    stream_component_close(global_v, global_v->video_stream);
+    stream_component_open(global_v, vid_streams[9]);
+}
+
+
+void MainWindow::on_action_sub1_triggered()
+{
+    stream_component_close(global_v, global_v->subtitle_stream);
+    stream_component_open(global_v, sub_streams[0]);
+}
+
+
+void MainWindow::on_action_sub2_triggered()
+{
+    stream_component_close(global_v, global_v->subtitle_stream);
+    stream_component_open(global_v, sub_streams[1]);
+}
+
+
+void MainWindow::on_action_sub3_triggered()
+{
+    stream_component_close(global_v, global_v->subtitle_stream);
+    stream_component_open(global_v, sub_streams[2]);
+}
+
+
+void MainWindow::on_action_sub4_triggered()
+{
+    stream_component_close(global_v, global_v->subtitle_stream);
+    stream_component_open(global_v, sub_streams[3]);
+}
+
+
+void MainWindow::on_action_sub5_triggered()
+{
+    stream_component_close(global_v, global_v->subtitle_stream);
+    stream_component_open(global_v, sub_streams[4]);
+}
+
+
+void MainWindow::on_action_sub6_triggered()
+{
+    stream_component_close(global_v, global_v->subtitle_stream);
+    stream_component_open(global_v, sub_streams[5]);
+}
+
+
+void MainWindow::on_action_sub7_triggered()
+{
+    stream_component_close(global_v, global_v->subtitle_stream);
+    stream_component_open(global_v, sub_streams[6]);
+}
+
+
+void MainWindow::on_action_sub8_triggered()
+{
+    stream_component_close(global_v, global_v->subtitle_stream);
+    stream_component_open(global_v, sub_streams[7]);
+}
+
+
+void MainWindow::on_action_sub9_triggered()
+{
+    stream_component_close(global_v, global_v->subtitle_stream);
+    stream_component_open(global_v, sub_streams[8]);
+}
+
+
+void MainWindow::on_action_sub10_triggered()
+{
+    stream_component_close(global_v, global_v->subtitle_stream);
+    stream_component_open(global_v, sub_streams[9]); 
+}
+
+void MainWindow::on_pushButton_clicked()
+{
+    toggle_full_screen(global_v);
+    global_v->force_refresh = 1;
+}
+
+void MainWindow::keyPressEvent( QKeyEvent * event )
+{
+    if(global_v)
+    {int incr;
+    if (event->key() == Qt::Key_Left) {
+        incr = seek_interval ? -seek_interval : -10.0;
+        double pos = get_master_clock(global_v);
+        if (isnan(pos))
+        pos = (double)global_v->seek_pos / AV_TIME_BASE;
+        pos += incr;
+        if (global_v->ic->start_time != AV_NOPTS_VALUE &&
+            pos < global_v->ic->start_time / (double)AV_TIME_BASE)
+        pos = global_v->ic->start_time / (double)AV_TIME_BASE;
+        stream_seek(global_v, (int64_t)(pos * AV_TIME_BASE),
+                    (int64_t)(incr * AV_TIME_BASE), 0);
+    }
+    if(event->key() == Qt::Key_Right)
+    {
+        incr = seek_interval ? seek_interval : 10.0;
+        double pos = get_master_clock(global_v);
+        if (isnan(pos))
+        pos = (double)global_v->seek_pos / AV_TIME_BASE;
+        pos += incr;
+        if (global_v->ic->start_time != AV_NOPTS_VALUE &&
+            pos < global_v->ic->start_time / (double)AV_TIME_BASE)
+        pos = global_v->ic->start_time / (double)AV_TIME_BASE;
+        stream_seek(global_v, (int64_t)(pos * AV_TIME_BASE),
+                    (int64_t)(incr * AV_TIME_BASE), 0);
+    }
+    if(event->key() == Qt::Key_Up){
+        update_volume(global_v, 1, SDL_VOLUME_STEP);
+        ui->horizontalSlider_2->setValue(ui->horizontalSlider_2->value() + 2);
+    }
+    if(event->key() == Qt::Key_Down){
+        update_volume(global_v, -1, SDL_VOLUME_STEP);
+        ui->horizontalSlider_2->setValue(ui->horizontalSlider_2->value() - 2);
+    }
+    if(event->key() == Qt::Key_M){
+        toggle_mute(global_v);
+    }
+    if(event->key() == Qt::Key_Space){
+        toggle_pause(global_v);
+        if(global_v->paused)
+            ui->pushButton_play->setIcon(QIcon(":/img/pause.png"));
+        else
+            ui->pushButton_play->setIcon(QIcon(":/img/start.png"));
+        ui->pushButton_play->setIconSize(QSize(20, 20));
+    }
+    }
 }

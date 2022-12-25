@@ -9,5 +9,7 @@
         <file>img/розшир.png</file>
         <file>img/start.png</file>
         <file>img/mute.png</file>
+        <file>img/chosen.png</file>
+        <file>img/fullscr.png</file>
     </qresource>
 </RCC>
