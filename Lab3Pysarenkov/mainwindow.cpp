@@ -43,8 +43,6 @@ extern "C"
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_thread.h>
 
-//#include "cmdutils.h"
-//#include "opt_common.h"
 }
 
 
@@ -92,11 +90,7 @@ static const char *video_codec_name;
 static double rdftspeed;
 static int64_t cursor_last_shown;
 static int cursor_hidden;
-//    #if CONFIG_AVFILTER
-//    static const char **vfilters_list = NULL;
-//    static int nb_vfilters = 0;
-//    static char *afilters = NULL;
-//    #endif
+
 static int autorotate;
 static int find_stream_info;
 static int filter_nbthreads;
@@ -133,18 +127,7 @@ MainWindow::MainWindow(QWidget *parent)
     avdevice_register_all();
 #endif
     avformat_network_init();
-    
-//    int flags = SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER;
-//    //задаємо флеги для запуску сдл
-//    if (!SDL_getenv("SDL_AUDIO_ALSA_SET_BUFFER_SIZE"))
-//        SDL_setenv("SDL_AUDIO_ALSA_SET_BUFFER_SIZE","1", 1);
-//    if (SDL_Init (flags)) {
-////        av_log(NULL, AV_LOG_FATAL, "Could not initialize SDL - %s\n", SDL_GetError());
-////        av_log(NULL, AV_LOG_FATAL, "(Did you set the DISPLAY variable?)\n");
-//        QMessageBox::critical(m, "Помилка","Не вдалось ініціалізувати SDL");
-//        exit(1);
-//    }
-    
+        
     default_width = 640;    
     default_height = 480;
     screen_width = 0;
@@ -231,15 +214,6 @@ static const struct TextureFormatEntry {
 { AV_PIX_FMT_UYVY422,        SDL_PIXELFORMAT_UYVY },
 { AV_PIX_FMT_NONE,           SDL_PIXELFORMAT_UNKNOWN },
 };
-
-//#if CONFIG_AVFILTER
-//static int opt_add_vfilter(void *optctx, const char *opt, const char *arg)
-//{
-//    GROW_ARRAY(vfilters_list, nb_vfilters);
-//    vfilters_list[nb_vfilters - 1] = arg;
-//    return 0;
-//}
-//#endif
 
 static QString get_hh_mm_ss(double time){
     int ts = time;
@@ -329,12 +303,10 @@ static int packet_queue_init(PacketQueue *q)
         return AVERROR(ENOMEM);
     q->mutex = SDL_CreateMutex();
     if (!q->mutex) {
-//        av_log(NULL, AV_LOG_FATAL, "SDL_CreateMutex(): %s\n", SDL_GetError());
         return AVERROR(ENOMEM);
     }
     q->cond = SDL_CreateCond();
     if (!q->cond) {
-//        av_log(NULL, AV_LOG_FATAL, "SDL_CreateCond(): %s\n", SDL_GetError());
         return AVERROR(ENOMEM);
     }
     q->abort_request = 1;
@@ -518,7 +490,6 @@ static int decoder_decode_frame(Decoder *d, AVFrame *frame, AVSubtitle *sub) {
         } else {
             //Відправляємо пакет у декодер.
             if (avcodec_send_packet(d->avctx, d->pkt) == AVERROR(EAGAIN)) {
-//                av_log(d->avctx, AV_LOG_ERROR, "Receive_frame and send_packet both returned EAGAIN, which is an API violation.\n");
                 d->packet_pending = 1;
             } else {
                 av_packet_unref(d->pkt);
@@ -544,11 +515,9 @@ static int frame_queue_init(FrameQueue *f, PacketQueue *pktq, int max_size, int 
     //алокуємо чергу фреймів
     memset(f, 0, sizeof(FrameQueue));
     if (!(f->mutex = SDL_CreateMutex())) {
-//        av_log(NULL, AV_LOG_FATAL, "SDL_CreateMutex(): %s\n", SDL_GetError());
         return AVERROR(ENOMEM);
     }
     if (!(f->cond = SDL_CreateCond())) {
-//        av_log(NULL, AV_LOG_FATAL, "SDL_CreateCond(): %s\n", SDL_GetError());
         return AVERROR(ENOMEM);
     }
     f->pktq = pktq;//черга пакетів
@@ -704,7 +673,6 @@ static int realloc_texture(SDL_Texture **texture, Uint32 new_format, int new_wid
             memset(pixels, 0, pitch * new_height);
             SDL_UnlockTexture(*texture);
         }
-//        av_log(NULL, AV_LOG_VERBOSE, "Created %dx%d texture with %s.\n", new_width, new_height, SDL_GetPixelFormatName(new_format));
     }
     return 0;
 }
@@ -776,8 +744,6 @@ static int upload_texture(SDL_Texture **tex, AVFrame *frame, struct SwsContext *
                     SDL_UnlockTexture(*tex);
                 }
             } else {
-                //                av_log(NULL, AV_LOG_FATAL, "Cannot initialize the
-                //                conversion context\n");
                 ret = -1;
             }
             break;
@@ -801,8 +767,6 @@ static int upload_texture(SDL_Texture **tex, AVFrame *frame, struct SwsContext *
                                          (AV_CEIL_RSHIFT(frame->height, 1) - 1),
                     -frame->linesize[2]);
             } else {
-                //                av_log(NULL, AV_LOG_ERROR, "Mixed negative and
-                //                positive linesizes are not supported.\n");
                 return -1;
             }
             break;
@@ -873,7 +837,6 @@ static void video_image_display(VideoState *is)
                             sub_rect->w, sub_rect->h, AV_PIX_FMT_BGRA,
                             0, NULL, NULL, NULL);
                         if (!is->sub_convert_ctx) {
-//                            av_log(NULL, AV_LOG_FATAL, "Cannot initialize the conversion context\n");
                             return;
                         }
                         if (!SDL_LockTexture(is->sub_texture,
@@ -909,18 +872,6 @@ static void video_image_display(VideoState *is)
     if (sp) {
 #if USE_ONEPASS_SUBTITLE_RENDER
         SDL_RenderCopy(renderer, is->sub_texture, NULL, &rect);
-#else
-        int i;
-        double xratio = (double)rect.w / (double)sp->width;
-        double yratio = (double)rect.h / (double)sp->height;
-        for (i = 0; i < sp->sub.num_rects; i++) {
-            SDL_Rect *sub_rect = (SDL_Rect*)sp->sub.rects[i];
-            SDL_Rect target = {.x = rect.x + sub_rect->x * xratio,
-                               .y = rect.y + sub_rect->y * yratio,
-                               .w = sub_rect->w * xratio,
-                               .h = sub_rect->h * yratio};
-            SDL_RenderCopy(renderer, is->sub_texture, sub_rect, &target);
-        }
 #endif
     }
 }
@@ -1029,7 +980,6 @@ static void video_audio_display(VideoState *s)
             s->rdft_data = (FFTSample*)av_malloc_array(nb_freq, 4 *sizeof(*s->rdft_data));
         }
         if (!s->rdft || !s->rdft_data){
-//            av_log(NULL, AV_LOG_ERROR, "Failed to allocate buffers for RDFT, switching to waves display\n");
             s->show_mode = SHOW_MODE_WAVES;
         } else {
             FFTSample *data[2];
@@ -1173,20 +1123,6 @@ static void do_exit(VideoState *is)
     if (is) {
         stream_close(is);
     }
-//    if (renderer)
-//        SDL_DestroyRenderer(renderer);
-//    if (window)
-//        SDL_DestroyWindow(window);
-//    uninit_opts();
-//#if CONFIG_AVFILTER
-//    av_freep(&vfilters_list);
-//#endif
-//    avformat_network_deinit();
-//    if (show_status)
-//        printf("\n");
-//    SDL_Quit();
-//    av_log(NULL, AV_LOG_QUIET, "%s", "");
-//    exit(0);
 }
 
 static void sigterm_handler(int sig)
@@ -1597,11 +1533,6 @@ static int queue_picture(VideoState *is, AVFrame *src_frame, double pts, double 
 {
     Frame *vp;
 
-#if defined(DEBUG_SYNC)
-    printf("frame_type=%c pts=%0.3f\n",
-           av_get_picture_type_char(src_frame->pict_type), pts);
-#endif
-
     if (!(vp = frame_queue_peek_writable(&is->pictq)))
         return -1;
 
@@ -1665,10 +1596,6 @@ static int audio_thread(void *arg)
     VideoState *is = (VideoState*)arg;
     AVFrame *frame = av_frame_alloc();
     Frame *af;
-//#if CONFIG_AVFILTER
-//    int last_serial = -1;
-//    int reconfigure;
-//#endif
     int got_frame = 0;
     AVRational tb;
     int ret = 0;
@@ -1683,40 +1610,6 @@ static int audio_thread(void *arg)
         if (got_frame) {
                 tb = (AVRational){1, frame->sample_rate};
 
-//#if CONFIG_AVFILTER
-//                reconfigure =
-//                    cmp_audio_fmts(is->audio_filter_src.fmt, is->audio_filter_src.ch_layout.nb_channels,
-//                                   frame->format, frame->ch_layout.nb_channels)    ||
-//                    av_channel_layout_compare(&is->audio_filter_src.ch_layout, &frame->ch_layout) ||
-//                    is->audio_filter_src.freq           != frame->sample_rate ||
-//                    is->auddec.pkt_serial               != last_serial;
-
-//                if (reconfigure) {
-//                    char buf1[1024], buf2[1024];
-//                    av_channel_layout_describe(&is->audio_filter_src.ch_layout, buf1, sizeof(buf1));
-//                    av_channel_layout_describe(&frame->ch_layout, buf2, sizeof(buf2));
-//                    av_log(NULL, AV_LOG_DEBUG,
-//                           "Audio frame changed from rate:%d ch:%d fmt:%s layout:%s serial:%d to rate:%d ch:%d fmt:%s layout:%s serial:%d\n",
-//                           is->audio_filter_src.freq, is->audio_filter_src.ch_layout.nb_channels, av_get_sample_fmt_name(is->audio_filter_src.fmt), buf1, last_serial,
-//                           frame->sample_rate, frame->ch_layout.nb_channels, av_get_sample_fmt_name(frame->format), buf2, is->auddec.pkt_serial);
-
-//                    is->audio_filter_src.fmt            = frame->format;
-//                    ret = av_channel_layout_copy(&is->audio_filter_src.ch_layout, &frame->ch_layout);
-//                    if (ret < 0)
-//                        goto the_end;
-//                    is->audio_filter_src.freq           = frame->sample_rate;
-//                    last_serial                         = is->auddec.pkt_serial;
-
-//                    if ((ret = configure_audio_filters(is, afilters, 1)) < 0)
-//                        goto the_end;
-//                }
-
-//            if ((ret = av_buffersrc_add_frame(is->in_audio_filter, frame)) < 0)
-//                goto the_end;
-
-//            while ((ret = av_buffersink_get_frame_flags(is->out_audio_filter, frame, 0)) >= 0) {
-//                tb = av_buffersink_get_time_base(is->out_audio_filter);
-//#endif
                 if (!(af = frame_queue_peek_writable(&is->sampq)))
                     //ставимо вказівник на останній елемент у черзі і пишемо туди фрейм
                     goto the_end;
@@ -1729,19 +1622,9 @@ static int audio_thread(void *arg)
                 av_frame_move_ref(af->frame, frame);
                 frame_queue_push(&is->sampq);
 
-//#if CONFIG_AVFILTER
-//                if (is->audioq.serial != is->auddec.pkt_serial)
-//                    break;
-//            }
-//            if (ret == AVERROR_EOF)
-//                is->auddec.finished = is->auddec.pkt_serial;
-//#endif
         }
     } while (ret >= 0 || ret == AVERROR(EAGAIN) || ret == AVERROR_EOF);
  the_end:
-//#if CONFIG_AVFILTER
-//    avfilter_graph_free(&is->agraph);
-//#endif
     av_frame_free(&frame);
     return ret;
 }
@@ -1752,7 +1635,6 @@ static int decoder_start(Decoder *d, int (*fn)(void *), const char *thread_name,
     packet_queue_start(d->queue);
     d->decoder_tid = SDL_CreateThread(fn, thread_name, arg);
     if (!d->decoder_tid) {
-//        av_log(NULL, AV_LOG_ERROR, "SDL_CreateThread(): %s\n", SDL_GetError());
         return AVERROR(ENOMEM);
     }
     return 0;
@@ -1768,16 +1650,6 @@ static int video_thread(void *arg)
     AVRational tb = is->video_st->time_base;
     AVRational frame_rate = av_guess_frame_rate(is->ic, is->video_st, NULL);
 
-//#if CONFIG_AVFILTER
-//    AVFilterGraph *graph = NULL;
-//    AVFilterContext *filt_out = NULL, *filt_in = NULL;
-//    int last_w = 0;
-//    int last_h = 0;
-//    enum AVPixelFormat last_format = -2;
-//    int last_serial = -1;
-//    int last_vfilter_idx = 0;
-//#endif
-
     if (!frame)
         return AVERROR(ENOMEM);
 
@@ -1787,80 +1659,15 @@ static int video_thread(void *arg)
             goto the_end;
         if (!ret)
             continue;
-
-//#if CONFIG_AVFILTER
-//        if (   last_w != frame->width
-//            || last_h != frame->height
-//            || last_format != frame->format
-//            || last_serial != is->viddec.pkt_serial
-//            || last_vfilter_idx != is->vfilter_idx) {
-//            av_log(NULL, AV_LOG_DEBUG,
-//                   "Video frame changed from size:%dx%d format:%s serial:%d to size:%dx%d format:%s serial:%d\n",
-//                   last_w, last_h,
-//                   (const char *)av_x_if_null(av_get_pix_fmt_name(last_format), "none"), last_serial,
-//                   frame->width, frame->height,
-//                   (const char *)av_x_if_null(av_get_pix_fmt_name(frame->format), "none"), is->viddec.pkt_serial);
-//            avfilter_graph_free(&graph);
-//            graph = avfilter_graph_alloc();
-//            if (!graph) {
-//                ret = AVERROR(ENOMEM);
-//                goto the_end;
-//            }
-//            graph->nb_threads = filter_nbthreads;
-//            if ((ret = configure_video_filters(graph, is, vfilters_list ? vfilters_list[is->vfilter_idx] : NULL, frame)) < 0) {
-//                SDL_Event event;
-//                event.type = FF_QUIT_EVENT;
-//                event.user.data1 = is;
-//                SDL_PushEvent(&event);
-//                goto the_end;
-//            }
-//            filt_in  = is->in_video_filter;
-//            filt_out = is->out_video_filter;
-//            last_w = frame->width;
-//            last_h = frame->height;
-//            last_format = frame->format;
-//            last_serial = is->viddec.pkt_serial;
-//            last_vfilter_idx = is->vfilter_idx;
-//            frame_rate = av_buffersink_get_frame_rate(filt_out);
-//        }
-
-//        ret = av_buffersrc_add_frame(filt_in, frame);
-//        if (ret < 0)
-//            goto the_end;
-
-//        while (ret >= 0) {
-//            is->frame_last_returned_time = av_gettime_relative() / 1000000.0;
-
-//            ret = av_buffersink_get_frame_flags(filt_out, frame, 0);
-//            if (ret < 0) {
-//                if (ret == AVERROR_EOF)
-//                    is->viddec.finished = is->viddec.pkt_serial;
-//                ret = 0;
-//                break;
-//            }
-
-//            is->frame_last_filter_delay = av_gettime_relative() / 1000000.0 - is->frame_last_returned_time;
-//            if (fabs(is->frame_last_filter_delay) > AV_NOSYNC_THRESHOLD / 10.0)
-//                is->frame_last_filter_delay = 0;
-//            tb = av_buffersink_get_time_base(filt_out);
-//#endif
         duration = (frame_rate.num && frame_rate.den ? av_q2d((AVRational){frame_rate.den, frame_rate.num}) : 0);
         pts = (frame->pts == AV_NOPTS_VALUE) ? NAN : frame->pts * av_q2d(tb);
         ret = queue_picture(is, frame, pts, duration, frame->pkt_pos, is->viddec.pkt_serial);
         av_frame_unref(frame);
-//#if CONFIG_AVFILTER
-//            if (is->videoq.serial != is->viddec.pkt_serial)
-//                break;
-//        }
-//#endif
 
         if (ret < 0)
             goto the_end;
     }
  the_end:
-//#if CONFIG_AVFILTER
-//    avfilter_graph_free(&graph);
-//#endif
     av_frame_free(&frame);
     return 0;
 }
@@ -2055,15 +1862,6 @@ static int audio_decode_frame(VideoState *is)
     else
         is->audio_clock = NAN;
     is->audio_clock_serial = af->serial;
-#ifdef DEBUG
-    {
-        static double last_clock;
-        printf("audio: delay=%0.3f clock=%0.3f clock0=%0.3f\n",
-               is->audio_clock - last_clock,
-               is->audio_clock, audio_clock0);
-        last_clock = is->audio_clock;
-    }
-#endif
     return resampled_data_size; //розмір декодованого і перетвореного аудіобуфера
 }
 
@@ -2136,7 +1934,6 @@ static int audio_open(void *opaque, int64_t wanted_channel_layout, int wanted_nb
 	wanted_spec.channels = wanted_nb_channels;
 	wanted_spec.freq = wanted_sample_rate;
 	if (wanted_spec.freq <= 0 || wanted_spec.channels <= 0) {
-        //        av_log(NULL, AV_LOG_ERROR, "Invalid sample rate or channel count!\n");
                 QMessageBox::critical(m, "Помилка", "Недопустима частота дискретизації або кількість каналів!");
                 return -1;
 	}
@@ -2156,8 +1953,6 @@ static int audio_open(void *opaque, int64_t wanted_channel_layout, int wanted_nb
 			wanted_spec.freq = next_sample_rates[next_sample_rate_idx--];
 			wanted_spec.channels = wanted_nb_channels;
 			if (!wanted_spec.freq) {
-                //                av_log(NULL, AV_LOG_ERROR,
-                //                       "No more combinations to try, audio open failed\n");
                 QMessageBox::critical(m, "Помилка", "Не вдалось знайти підходящу для відтворення аудіоконфігурацію");
                 return -1;
 			}
@@ -2165,16 +1960,12 @@ static int audio_open(void *opaque, int64_t wanted_channel_layout, int wanted_nb
 		wanted_channel_layout = av_get_default_channel_layout(wanted_spec.channels);
 	}
 	if (spec.format != AUDIO_S16SYS) {
-        //        av_log(NULL, AV_LOG_ERROR,
-        //               "SDL advised audio format %d is not supported!\n", spec.format);
             QMessageBox::critical(m, "Помилка", "Підібрана SDL конфігурація не підтримується");
             return -1;
 	}
 	if (spec.channels != wanted_spec.channels) {
 		wanted_channel_layout = av_get_default_channel_layout(spec.channels);
 		if (!wanted_channel_layout) {
-            //            av_log(NULL, AV_LOG_ERROR,
-            //                   "SDL advised channel count %d is not supported!\n", spec.channels);
             QMessageBox::critical(m, "Помилка", "Недопустима кількість каналів!");
             return -1;
 		}
@@ -2187,7 +1978,6 @@ static int audio_open(void *opaque, int64_t wanted_channel_layout, int wanted_nb
 	audio_hw_params->frame_size = av_samples_get_buffer_size(NULL, audio_hw_params->channels, 1, audio_hw_params->fmt, 1);
 	audio_hw_params->bytes_per_sec = av_samples_get_buffer_size(NULL, audio_hw_params->channels, audio_hw_params->freq, audio_hw_params->fmt, 1);
 	if (audio_hw_params->bytes_per_sec <= 0 || audio_hw_params->frame_size <= 0) {
-//		av_log(NULL, AV_LOG_ERROR, "av_samples_get_buffer_size failed\n");
 		return -1;
 	}
 	return spec.size;
@@ -2246,8 +2036,6 @@ static int stream_component_open(VideoState *is, int stream_index)
 
     avctx->codec_id = codec->id;
     if (stream_lowres > codec->max_lowres) {
-//        av_log(avctx, AV_LOG_WARNING, "The maximum value for lowres supported by the decoder is %d\n",
-//                codec->max_lowres);
         stream_lowres = codec->max_lowres;
     }
     avctx->lowres = stream_lowres;
@@ -2255,46 +2043,17 @@ static int stream_component_open(VideoState *is, int stream_index)
     if (fast)
         avctx->flags2 |= AV_CODEC_FLAG2_FAST;
 
-//    opts = filter_codec_opts(codec_opts, avctx->codec_id, ic, ic->streams[stream_index], codec);
-//    if (!av_dict_get(opts, "threads", NULL, 0))
-//        av_dict_set(&opts, "threads", "auto", 0);
-//    if (stream_lowres)
-//        av_dict_set_int(&opts, "lowres", stream_lowres, 0);
     if ((ret = avcodec_open2(avctx, codec, NULL)) < 0) {
         goto fail;
     }
-//    if ((t = av_dict_get(opts, "", NULL, AV_DICT_IGNORE_SUFFIX))) {
-////        av_log(NULL, AV_LOG_ERROR, "Option %s not found.\n", t->key);
-//        ret =  AVERROR_OPTION_NOT_FOUND;
-//        goto fail;
-//    }
 
     is->eof = 0;
     ic->streams[stream_index]->discard = AVDISCARD_DEFAULT;
     switch (avctx->codec_type) {
     case AVMEDIA_TYPE_AUDIO:
-//#if CONFIG_AVFILTER
-//        {
-//            AVFilterContext *sink;
-
-//            is->audio_filter_src.freq           = avctx->sample_rate;
-//            ret = av_channel_layout_copy(&is->audio_filter_src.ch_layout, &avctx->ch_layout);
-//            if (ret < 0)
-//                goto fail;
-//            is->audio_filter_src.fmt            = avctx->sample_fmt;
-//            if ((ret = configure_audio_filters(is, afilters, 0)) < 0)
-//                goto fail;
-//            sink = is->out_audio_filter;
-//            sample_rate    = av_buffersink_get_sample_rate(sink);
-//            ret = av_buffersink_get_ch_layout(sink, &ch_layout);
-//            if (ret < 0)
-//                goto fail;
-//        }
-//#else
         sample_rate    = avctx->sample_rate;
         nb_channels    = avctx->channels;
         channel_layout = avctx->channel_layout;
-//#endif
 
         /* prepare audio output */
         if ((ret = audio_open(is, channel_layout, nb_channels, sample_rate, &is->audio_tgt)) < 0)
@@ -2352,8 +2111,6 @@ static int stream_component_open(VideoState *is, int stream_index)
 fail:
     avcodec_free_context(&avctx);
 out:
-//    av_dict_free(&opts);
-
     return ret;
 }
 
@@ -2403,7 +2160,6 @@ static int read_thread(void *arg)
     int pkt_in_play_range = 0;
     const AVDictionaryEntry *t;
     SDL_mutex *wait_mutex = SDL_CreateMutex();
-//    int scan_all_pmts_set = 0;
     int64_t pkt_ts;
     QString* titles_aud;
     QString* titles_vid;
@@ -2412,7 +2168,6 @@ static int read_thread(void *arg)
     int n_vid = 0, i_vid = 0;
     int n_sub = 0, i_sub = 0;
     if (!wait_mutex) {
-//        av_log(NULL, AV_LOG_FATAL, "SDL_CreateMutex(): %s\n", SDL_GetError());
         ret = AVERROR(ENOMEM);
         goto fail;
     }
@@ -2422,36 +2177,21 @@ static int read_thread(void *arg)
 
     pkt = av_packet_alloc();
     if (!pkt) {
-//        av_log(NULL, AV_LOG_FATAL, "Could not allocate packet.\n");
         ret = AVERROR(ENOMEM);
         goto fail;
     }
     ic = avformat_alloc_context();
     if (!ic) {
-//        av_log(NULL, AV_LOG_FATAL, "Could not allocate context.\n");
         ret = AVERROR(ENOMEM);
         goto fail;
     }
     ic->interrupt_callback.callback = decode_interrupt_cb;
     ic->interrupt_callback.opaque = is;
-//    if (!av_dict_get(format_opts, "scan_all_pmts", NULL, AV_DICT_MATCH_CASE)) {
-//        av_dict_set(&format_opts, "scan_all_pmts", "1", AV_DICT_DONT_OVERWRITE);
-//        scan_all_pmts_set = 1;
-//    }
     err = avformat_open_input(&ic, is->filename, is->iformat, NULL); //відкриваємо форматктх для файлу із таким то форматом
     if (err < 0) {
-//        print_error(is->filename, err);
         ret = -1;
         goto fail;
     }
-//    if (scan_all_pmts_set)
-//        av_dict_set(&format_opts, "scan_all_pmts", NULL, AV_DICT_MATCH_CASE);
-
-//    if ((t = av_dict_get(format_opts, "", NULL, AV_DICT_IGNORE_SUFFIX))) {
-//        av_log(NULL, AV_LOG_ERROR, "Option %s not found.\n", t->key);
-//        ret = AVERROR_OPTION_NOT_FOUND;
-//        goto fail;
-//    }
     is->ic = ic;
     ldur->setText(get_hh_mm_ss(ic->duration / 1000000LL));
     if (genpts)
@@ -2461,18 +2201,8 @@ static int read_thread(void *arg)
 
     if (find_stream_info) {
         //шукаємо стрім інфо
-//        AVDictionary **opts = setup_find_stream_info_opts(ic, codec_opts);
-//        int orig_nb_streams = ic->nb_streams;
-
         err = avformat_find_stream_info(ic, NULL);
-
-//        for (i = 0; i < orig_nb_streams; i++)
-//            av_dict_free(&opts[i]);
-//        av_freep(&opts);
-
         if (err < 0) {
-//            av_log(NULL, AV_LOG_WARNING,
-//                   "%s: could not find codec parameters\n", is->filename);
             ret = -1;
             goto fail;
         }
@@ -2501,16 +2231,9 @@ static int read_thread(void *arg)
         if (ic->start_time != AV_NOPTS_VALUE)
             timestamp += ic->start_time;
         ret = avformat_seek_file(ic, -1, INT64_MIN, timestamp, INT64_MAX, 0);
-        if (ret < 0) {
-//            av_log(NULL, AV_LOG_WARNING, "%s: could not seek to position %0.3f\n",
-//                    is->filename, (double)timestamp / AV_TIME_BASE);
-        }
     }
 
     is->realtime = is_realtime(ic);
-
-//    if (show_status)
-//        av_dump_format(ic, 0, is->filename, 0);
 
     //шукаємо усі потоки
     for (i = 0; i < ic->nb_streams; i++) {
@@ -2537,7 +2260,6 @@ static int read_thread(void *arg)
     }
     for (i = 0; i < AVMEDIA_TYPE_NB; i++) {
         if (wanted_stream_spec[i] && st_index[i] == -1) {
-//            av_log(NULL, AV_LOG_ERROR, "Stream specifier %s does not match any %s stream\n", wanted_stream_spec[i], av_get_media_type_string(i));
             st_index[i] = INT_MAX;
         }
     }
@@ -2656,9 +2378,6 @@ static int read_thread(void *arg)
     }
 
     if (is->video_stream < 0 && is->audio_stream < 0) {
-//        av_log(NULL, AV_LOG_FATAL, "Failed to open file '%s' or configure filtergraph\n",
-//               is->filename);
-//        emit SendMessage(1, "Не вдалось відкрити файл " + QString::fromStdString(is->filename));
         QMessageBox::critical(m, "Помилка", "Не вдалось відкрити файл " + QString::fromStdString(is->filename));
         ret = -1;
         goto fail;
@@ -2697,8 +2416,6 @@ static int read_thread(void *arg)
 
             ret = avformat_seek_file(is->ic, -1, seek_min, seek_target, seek_max, is->seek_flags);
             if (ret < 0) {
-//                av_log(NULL, AV_LOG_ERROR,
-//                       "%s: error while seeking\n", is->ic->url);
             } else {
                 if (is->audio_stream >= 0)
                     packet_queue_flush(&is->audioq);
@@ -2847,7 +2564,6 @@ static VideoState *stream_open(const char *filename,
         goto fail;
 
     if (!(is->continue_read_thread = SDL_CreateCond())) {
-//        av_log(NULL, AV_LOG_FATAL, "SDL_CreateCond(): %s\n", SDL_GetError());
         goto fail;
     }
     //ініціалізація коків
@@ -2856,10 +2572,6 @@ static VideoState *stream_open(const char *filename,
     init_clock(&is->extclk, &is->extclk.serial);
     is->audio_clock_serial = -1;
     //гучність
-//    if (startup_volume < 0)
-//        av_log(NULL, AV_LOG_WARNING, "-volume=%d < 0, setting to 0\n", startup_volume);
-//    if (startup_volume > 100)
-//        av_log(NULL, AV_LOG_WARNING, "-volume=%d > 100, setting to 100\n", startup_volume);
     startup_volume = av_clip(startup_volume, 0, 100);
     startup_volume = av_clip(SDL_MIX_MAXVOLUME * startup_volume / 100, 0, SDL_MIX_MAXVOLUME);
     is->audio_volume = startup_volume;
@@ -2867,7 +2579,6 @@ static VideoState *stream_open(const char *filename,
     is->av_sync_type = av_sync_type; //той який дефолтний буде
     is->read_tid     = SDL_CreateThread(read_thread, "read_thread", is); //ЗАПУСКАЄМО ЧИТАННЯ
     if (!is->read_tid) {
-//        av_log(NULL, AV_LOG_FATAL, "SDL_CreateThread(): %s\n", SDL_GetError());
 fail:
         stream_close(is);
         return NULL;
@@ -2944,11 +2655,6 @@ static void stream_cycle_channel(VideoState *is, int codec_type)
  the_end:
     if (p && stream_index != -1)
         stream_index = p->stream_index[stream_index];
-//    av_log(NULL, AV_LOG_INFO, "Switch %s stream from #%d to #%d\n",
-//           av_get_media_type_string(codec_type),
-//           old_index,
-//           stream_index);
-
     stream_component_close(is, old_index);
     stream_component_open(is, stream_index);
 }
@@ -3011,7 +2717,6 @@ static void seek_chapter(VideoState *is, int incr)
     if (i >= is->ic->nb_chapters)
         return;
 
-//    av_log(NULL, AV_LOG_VERBOSE, "Seeking to chapter %d.\n", i);
     stream_seek(is, av_rescale_q(is->ic->chapters[i]->start, is->ic->chapters[i]->time_base,
                                  AV_TIME_BASE_Q), 0, 0);
 }
@@ -3072,17 +2777,7 @@ static void event_loop(VideoState *cur_stream)
                 stream_cycle_channel(cur_stream, AVMEDIA_TYPE_SUBTITLE);
                 break;
             case SDLK_w:
-//#if CONFIG_AVFILTER
-//                if (cur_stream->show_mode == SHOW_MODE_VIDEO && cur_stream->vfilter_idx < nb_vfilters - 1) {
-//                    if (++cur_stream->vfilter_idx >= nb_vfilters)
-//                        cur_stream->vfilter_idx = 0;
-//                } else {
-//                    cur_stream->vfilter_idx = 0;
-//                    toggle_audio_display(cur_stream);
-//                }
-//#else
                 toggle_audio_display(cur_stream);
-//#endif
                 break;
             case SDLK_PAGEUP:
                 if (cur_stream->ic->nb_chapters <= 1) {
@@ -3214,79 +2909,16 @@ int init()
 {
     VideoState *is;
     
-    
-    /*init_dynload();*/ //Initialize dynamic library loading.
-
-    //налаштування логгінга
-//    av_log_set_flags(AV_LOG_SKIP_REPEATED);
-//    parse_loglevel(argc, argv, options);
-
-    /* register all codecs, demux and protocols */
-
-
     signal(SIGINT , sigterm_handler); /* Interrupt (ANSI).    */
     signal(SIGTERM, sigterm_handler); /* Termination (ANSI).  */
-
-//    show_banner(argc, argv, options); //Print the program banner to stderr.
-
-//    parse_options(NULL, argc, argv, options, opt_input_file);
-
-//    if (!input_filename) {
-//        show_usage();
-//        av_log(NULL, AV_LOG_FATAL, "An input file must be specified\n");
-//        av_log(NULL, AV_LOG_FATAL,
-//               "Use -h to get full help or, even better, run 'man %s'\n", program_name);
-//        exit(1);
-//    }
-
-
 
     SDL_EventState(SDL_SYSWMEVENT, SDL_IGNORE);
     SDL_EventState(SDL_USEREVENT, SDL_IGNORE);
 
-//    if (!display_disable) {
-//        int flags = SDL_WINDOW_HIDDEN;
-//        if (alwaysontop)
-////#if SDL_VERSION_ATLEAST(2,0,5)
-//            flags |= SDL_WINDOW_ALWAYS_ON_TOP;
-////#else
-////            av_log(NULL, AV_LOG_WARNING, "Your SDL version doesn't support SDL_WINDOW_ALWAYS_ON_TOP. Feature will be inactive.\n");
-////#endif
-//        if (borderless)
-//            flags |= SDL_WINDOW_BORDERLESS;
-//        else
-//            flags |= SDL_WINDOW_RESIZABLE;
-
-//#ifdef SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR
-//        SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
-//#endif
-//        //створюємо віконце
-//        window = SDL_CreateWindow(program_name, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, default_width, default_height, flags);
-//        SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
-//        if (window) {
-//            //і рендерер
-//            renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-//            if (!renderer) {
-////                av_log(NULL, AV_LOG_WARNING, "Failed to initialize a hardware accelerated renderer: %s\n", SDL_GetError());
-//                renderer = SDL_CreateRenderer(window, -1, 0);
-//            }
-//            if (renderer) {
-//                SDL_GetRendererInfo(renderer, &renderer_info);
-////                    av_log(NULL, AV_LOG_VERBOSE, "Initialized %s renderer.\n", renderer_info.name);
-//            }
-//        }
-//        if (!window || !renderer || !renderer_info.num_texture_formats) {
-////            av_log(NULL, AV_LOG_FATAL, "Failed to create window or renderer: %s", SDL_GetError());
-//            QMessageBox::critical(m, "Помилка","Не вдалось створити вікно або рендерер");            
-//            do_exit(NULL);
-//        }
-//    }
     //створюємо відеостейт
     is = stream_open(input_filename, file_iformat);
     m->setWindowTitle(input_filename);
     if (!is) {
-//        av_log(NULL, AV_LOG_FATAL, "Failed to initialize VideoState!\n");
-//        do_exit(NULL);
         QMessageBox::critical(m, "Помилка", "Не вдалось ініціалізувати VideoState");
         return 0;
     }
@@ -3358,7 +2990,6 @@ void MainWindow::on_action_open_f_triggered()
         m = this;//передача форми у статичний об'єкт для того, аби використовувати її при виконанні
     //статичних методів (у яких просто this не можна використати)
     init();
-//    QMessageBox::critical(m, "Капець", "Я поки не рішив як інтегрувати то тому насолоджуйтесь дискрешиєю");
 }
 
 void MainWindow::on_action_exit_triggered()
